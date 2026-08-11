@@ -1,0 +1,295 @@
+// Night Corner database schema
+// SQLite for zero-config local/preview; switch provider to "postgresql" and DATABASE_URL for production.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Auth & Users ─────────────────────────
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  mobile        String?   @unique
+  passwordHash  String?
+  image         String?
+  role          String    @default("CUSTOMER") // CUSTOMER | ADMIN | STAFF
+  status        String    @default("ACTIVE") // ACTIVE | DISABLED
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  addresses     Address[]
+  orders        Order[]
+  cart          Cart?
+  wishlist      Wishlist?
+  reviews       Review[]
+  notifications Notification[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
+
+// ───────────────────────── Catalog ─────────────────────────
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  image       String?
+  order       Int       @default(0)
+  active      Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  description   String
+  shortDesc     String?
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id])
+  price         Float // current selling price (admin-editable)
+  mrp           Float
+  image         String
+  thumbnail     String?
+  gallery       String?   @default("[]") // JSON array of image paths for scrolling/3D gallery
+  stock         Int       @default(0)
+  startingStock Int       @default(0)
+  sold          Int       @default(0)
+  sku           String    @unique
+  unit          String    @default("1 pc")
+  isVeg         Boolean   @default(true)
+  featured      Boolean   @default(false)
+  bestSeller    Boolean   @default(false)
+  active        Boolean   @default(true)
+  lowStockAt    Int       @default(3)
+  freshnessNote String? // for bakery
+  keywords      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  orderItems    OrderItem[]
+  cartItems     CartItem[]
+  wishlists     WishlistItem[]
+  reviews       Review[]
+  inventoryTx   InventoryTx[]
+  @@index([categoryId])
+  @@index([slug])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────────── Cart ─────────────────────────
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  @@unique([cartId, productId])
+}
+
+model Wishlist {
+  id     String         @id @default(cuid())
+  userId String         @unique
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  WishlistItem[]
+}
+
+model WishlistItem {
+  id         String  @id @default(cuid())
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@unique([wishlistId, productId])
+}
+
+// ───────────────────────── Addresses ─────────────────────────
+model Address {
+  id         String  @id @default(cuid())
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName   String
+  mobile     String
+  house      String
+  street     String
+  area       String
+  landmark   String?
+  city       String
+  state      String
+  pincode    String
+  lat        Float?
+  lng        Float?
+  instructions String?
+  isDefault  Boolean @default(false)
+  createdAt  DateTime @default(now())
+  orders     Order[]
+}
+
+// ───────────────────────── Orders ─────────────────────────
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique // NC-2026-00001
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  addressId       String?
+  address         Address?    @relation(fields: [addressId], references: [id])
+  // snapshot address fields so invoice stays valid if address is later edited
+  addressSnapshot String?
+  items           OrderItem[]
+  subtotal        Float
+  discount        Float       @default(0)
+  deliveryCharge  Float       @default(0)
+  tax             Float       @default(0)
+  total           Float
+  distanceKm      Float       @default(0)
+  status          String      @default("PLACED")
+  // PLACED,CONFIRMED,PREPARING,PACKED,OUT_FOR_DELIVERY,DELIVERED,CANCELLED,REFUNDED
+  paymentMethod   String      @default("COD") // COD,UPI,ONLINE
+  paymentStatus   String      @default("PENDING") // PENDING,PAID,FAILED,REFUNDED
+  paymentId       String?
+  couponCode      String?
+  eta             String?
+  notes           String?
+  invoicePdf      String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  @@index([status])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  name        String // snapshot
+  sku         String
+  image       String
+  unitPrice   Float
+  quantity    Int
+  lineTotal   Float
+}
+
+// ───────────────────────── Inventory ─────────────────────────
+model InventoryTx {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  change    Int // positive = restock, negative = deduction
+  reason    String // ORDER, RESTOCK, ADJUSTMENT
+  orderId   String?
+  note      String?
+  userId    String?
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────────── Coupons ─────────────────────────
+model Coupon {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  type            String   // PERCENT | FIXED
+  value           Float
+  minOrder        Float    @default(0)
+  maxDiscount     Float?
+  freeDelivery    Boolean  @default(false)
+  usageLimit      Int?
+  usedCount       Int      @default(0)
+  perCustomerLimit Int     @default(1)
+  active          Boolean  @default(true)
+  startsAt        DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime @default(now())
+}
+
+// ───────────────────────── Settings ─────────────────────────
+model Settings {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String // JSON blob
+}
+
+// ───────────────────────── Notifications ─────────────────────────
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // ORDER, STOCK, SYSTEM
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  @@index([userId])
+}
+
+// ───────────────────────── Activity Log (admin) ─────────────────────────
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String?
+  action    String
+  entity    String?
+  entityId  String?
+  meta      String? // JSON
+  ip        String?
+  createdAt DateTime @default(now())
+}

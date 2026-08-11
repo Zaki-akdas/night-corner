@@ -1,0 +1,13 @@
+{
+  "name": "Night Corner — Your Night. Your Essentials.",
+  "short_name": "Night Corner",
+  "description": "Late-night snacks, bakery, chocolates, instant food and drinks delivered to your door.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05060f",
+  "theme_color": "#05060f",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/logo-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

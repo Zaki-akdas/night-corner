@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="75%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.45"/>
+      <stop offset="60%" stop-color="#0a0c1e"/>
+      <stop offset="100%" stop-color="#05060f"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#bae6fd"/><stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <g opacity="0.7"><circle cx="120" cy="90" r="2" fill="#fff"/><circle cx="680" cy="120" r="2" fill="#fff"/><circle cx="200" cy="400" r="2" fill="#fff"/></g>
+  <circle cx="400" cy="230" r="130" fill="none" stroke="url(#ring)" stroke-width="3" opacity="0.8"/>
+  <circle cx="400" cy="230" r="95" fill="#0a0c1e" opacity="0.6"/>
+  <text x="400" y="270" text-anchor="middle" font-size="110">🥤</text>
+  <text x="400" y="420" text-anchor="middle" font-family="Arial Black,Arial" font-size="34" letter-spacing="2" fill="#fff">Drinks &amp; Energy Drinks</text>
+  <text x="400" y="458" text-anchor="middle" font-family="Arial" font-size="16" fill="#94a3b8">NIGHT CORNER</text>
+</svg>

@@ -1,0 +1,170 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #05060f;
+  color-scheme: dark;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  background: #05060f;
+  color: #e6e8f5;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(168, 85, 247, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 85% 10%, rgba(56, 189, 248, 0.14), transparent 60%),
+    radial-gradient(800px 500px at 5% 25%, rgba(236, 72, 153, 0.1), transparent 60%),
+    #05060f;
+  background-attachment: fixed;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0c1e;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #6d28d9, #0369a1);
+  border-radius: 999px;
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/[0.04] backdrop-blur-xl border border-white/10;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015));
+  }
+  .glass-strong {
+    @apply bg-white/[0.07] backdrop-blur-2xl border border-white/15;
+  }
+  .neon-border {
+    box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.4), 0 0 24px rgba(168, 85, 247, 0.25);
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl px-5 py-2.5 transition-all duration-200 select-none disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn text-white;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    box-shadow: 0 8px 30px rgba(124, 58, 237, 0.35);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 10px 40px rgba(124, 58, 237, 0.55);
+    transform: translateY(-1px);
+  }
+  .btn-ghost {
+    @apply btn text-slate-200 bg-white/5 border border-white/10 hover:bg-white/10;
+  }
+  .btn-warm {
+    @apply btn text-night-900;
+    background: linear-gradient(135deg, #fde68a, #f59e0b);
+    box-shadow: 0 8px 30px rgba(245, 158, 11, 0.35);
+  }
+  .btn-whatsapp {
+    @apply btn text-white;
+    background: linear-gradient(135deg, #25d366, #128c7e);
+  }
+  .input {
+    @apply w-full rounded-xl bg-night-900/70 border border-white/10 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 outline-none transition focus:border-neon-purple focus:ring-2 focus:ring-neon-purple/30;
+  }
+  .label {
+    @apply block text-sm font-medium text-slate-300 mb-1.5;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+  .card {
+    @apply glass rounded-2xl;
+  }
+  .heading-gradient {
+    background: linear-gradient(90deg, #c084fc, #38bdf8 55%, #fbbf24);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Night sky stars */
+.stars,
+.stars::after,
+.stars::before {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+    radial-gradient(1px 1px at 60px 120px, #c4b5fd, transparent),
+    radial-gradient(1.5px 1.5px at 140px 80px, #fff, transparent),
+    radial-gradient(1px 1px at 220px 200px, #bae6fd, transparent),
+    radial-gradient(1px 1px at 320px 60px, #fff, transparent),
+    radial-gradient(1px 1px at 420px 180px, #fde68a, transparent),
+    radial-gradient(1.5px 1.5px at 520px 110px, #fff, transparent);
+  background-repeat: repeat;
+  background-size: 600px 300px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.stars::after {
+  background-size: 800px 400px;
+  animation: twinkle 5s ease-in-out infinite;
+  opacity: 0.35;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: shimmer 1.6s infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Product card 3D tilt */
+.tilt {
+  transform-style: preserve-3d;
+  transition: transform 0.25s ease;
+}
+.tilt:hover {
+  transform: perspective(900px) rotateX(3deg) rotateY(-4deg) translateY(-4px);
+}
+
+/* Page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}

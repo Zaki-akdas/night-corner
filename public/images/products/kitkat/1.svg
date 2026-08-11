@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#1f2560"/>
+      <stop offset="55%" stop-color="#0a0c1e"/>
+      <stop offset="100%" stop-color="#05060f"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#b45309" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#b45309" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <g opacity="0.5"><circle cx="90" cy="90" r="1.5" fill="#fff"/><circle cx="510" cy="130" r="1.2" fill="#c4b5fd"/><circle cx="150" cy="220" r="1" fill="#fff"/><circle cx="480" cy="260" r="1.6" fill="#bae6fd"/><circle cx="80" cy="430" r="1.2" fill="#fff"/></g>
+  <circle cx="300" cy="340" r="230" fill="url(#glow)"/>
+  <!-- reflective floor -->
+  <ellipse cx="300" cy="530" rx="190" ry="30" fill="url(#floor)"/>
+  <ellipse cx="300" cy="532" rx="120" ry="12" fill="#000" opacity="0.45"/>
+  <g transform="translate(0 0) rotate(0 300 320)"><linearGradient id="pack" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#fbbf24"/>
+    <stop offset="50%" stop-color="#b45309"/>
+    <stop offset="100%" stop-color="#451a03"/>
+  </linearGradient>
+    <g>
+      <rect x="145" y="205" width="310" height="190" rx="20" fill="url(#pack)" stroke="#fbbf24" stroke-width="3"/>
+      <rect x="145" y="205" width="310" height="40" rx="20" fill="#451a03" opacity="0.7"/>
+      <rect x="175" y="260" width="250" height="120" rx="12" fill="#05060f" opacity="0.82"/>
+      <text x="300" y="325" text-anchor="middle" font-family="Arial Black" font-size="32" fill="#fbbf24">KitKat</text>
+      <path d="M210 350 L260 310 L300 345 L350 295 L395 345" fill="none" stroke="#fbbf24" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+    </g></g>
+  <g text-anchor="middle" font-family="Arial, sans-serif">
+    <text x="300" y="572" font-size="13" letter-spacing="3" fill="#64748b">NIGHT CORNER</text>
+  </g>
+</svg>

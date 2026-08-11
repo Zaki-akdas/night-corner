@@ -1,0 +1,23 @@
+# dependencies
+/node_modules
+
+# next.js build output
+/.next
+/out
+
+# environment & secrets — NEVER commit
+.env
+.env*.local
+
+# database (created via `npm run db:push` + `npm run db:seed`)
+prisma/dev.db
+prisma/dev.db-journal
+
+# tooling / workspace-local files
+.freebuff/
+.config/
+tsconfig.tsbuildinfo
+
+# misc
+*.log
+.DS_Store

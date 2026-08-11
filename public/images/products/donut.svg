@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="32%" r="75%">
+      <stop offset="0%" stop-color="#1f2560"/><stop offset="55%" stop-color="#0a0c1e"/><stop offset="100%" stop-color="#05060f"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#fb7185" stop-opacity="0.55"/><stop offset="100%" stop-color="#fb7185" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <circle cx="300" cy="320" r="260" fill="url(#glow)"/>
+  <g fill="#fff">
+    <circle cx="80" cy="80" r="1.6" opacity="0.8"/><circle cx="520" cy="120" r="1.4" opacity="0.7"/>
+    <circle cx="150" cy="200" r="1.2" opacity="0.6"/><circle cx="490" cy="260" r="1.8" opacity="0.8"/>
+    <circle cx="90" cy="420" r="1.3" opacity="0.5"/><circle cx="520" cy="440" r="1.5" opacity="0.7"/></g>
+  
+      <defs><linearGradient id="pack" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#fda4af"/><stop offset="60%" stop-color="#fb7185"/><stop offset="100%" stop-color="#be123c"/>
+      </linearGradient></defs>
+      <ellipse cx="300" cy="495" rx="140" ry="24" fill="#000" opacity="0.45"/>
+      <path d="M170 350 Q300 510 430 350 L410 250 Q300 210 190 250 Z" fill="url(#pack)" stroke="#fda4af" stroke-width="3"/>
+      <ellipse cx="300" cy="250" rx="110" ry="34" fill="#be123c" opacity="0.8"/>
+      <rect x="220" y="310" width="160" height="90" rx="14" fill="#0a0c1e" opacity="0.78"/>
+  <g text-anchor="middle" font-family="Arial, sans-serif">
+    <text x="300" y="336" font-size="32" font-weight="bold" fill="#fff" style="letter-spacing:1px">Donut</text>
+    <text x="300" y="364" font-size="15" fill="#fda4af">Chocolate glazed donut</text>
+  </g>
+  <text x="300" y="560" text-anchor="middle" font-family="Arial Black,Arial" font-size="13" letter-spacing="2" fill="#94a3b8" opacity="0.85">NIGHT CORNER</text>
+</svg>

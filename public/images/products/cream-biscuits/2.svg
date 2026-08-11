@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#1f2560"/>
+      <stop offset="55%" stop-color="#0a0c1e"/>
+      <stop offset="100%" stop-color="#05060f"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#d97706" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#d97706" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <g opacity="0.5"><circle cx="90" cy="90" r="1.5" fill="#fff"/><circle cx="510" cy="130" r="1.2" fill="#c4b5fd"/><circle cx="150" cy="220" r="1" fill="#fff"/><circle cx="480" cy="260" r="1.6" fill="#bae6fd"/><circle cx="80" cy="430" r="1.2" fill="#fff"/></g>
+  <circle cx="300" cy="340" r="230" fill="url(#glow)"/>
+  <!-- reflective floor -->
+  <ellipse cx="300" cy="530" rx="190" ry="30" fill="url(#floor)"/>
+  <ellipse cx="300" cy="532" rx="120" ry="12" fill="#000" opacity="0.45"/>
+  <g transform="translate(0 -10) rotate(0 300 320)"><linearGradient id="pack" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#fcd34d"/>
+    <stop offset="50%" stop-color="#d97706"/>
+    <stop offset="100%" stop-color="#78350f"/>
+  </linearGradient>
+    <g opacity="0.35" transform="translate(40 80) scale(0.5)">
+    <g>
+      <circle cx="300" cy="310" r="150" fill="url(#pack)" stroke="#fcd34d" stroke-width="3"/>
+      <circle cx="245" cy="260" r="16" fill="#78350f" opacity="0.7"/>
+      <circle cx="345" cy="245" r="12" fill="#78350f" opacity="0.6"/>
+      <circle cx="375" cy="325" r="14" fill="#78350f" opacity="0.65"/>
+      <circle cx="265" cy="365" r="18" fill="#78350f" opacity="0.6"/>
+      <circle cx="315" cy="300" r="10" fill="#78350f" opacity="0.5"/>
+      <text x="300" y="390" text-anchor="middle" font-family="Arial Black" font-size="26" fill="#fff" opacity="0.9">Cream Bisc</text>
+    </g></g>
+    <g transform="rotate(-8 300 300)">
+    <g>
+      <circle cx="300" cy="310" r="150" fill="url(#pack)" stroke="#fcd34d" stroke-width="3"/>
+      <circle cx="245" cy="260" r="16" fill="#78350f" opacity="0.7"/>
+      <circle cx="345" cy="245" r="12" fill="#78350f" opacity="0.6"/>
+      <circle cx="375" cy="325" r="14" fill="#78350f" opacity="0.65"/>
+      <circle cx="265" cy="365" r="18" fill="#78350f" opacity="0.6"/>
+      <circle cx="315" cy="300" r="10" fill="#78350f" opacity="0.5"/>
+      <text x="300" y="390" text-anchor="middle" font-family="Arial Black" font-size="26" fill="#fff" opacity="0.9">Cream Bisc</text>
+    </g></g></g>
+  <g text-anchor="middle" font-family="Arial, sans-serif">
+    <text x="300" y="572" font-size="13" letter-spacing="3" fill="#64748b">NIGHT CORNER</text>
+  </g>
+</svg>
