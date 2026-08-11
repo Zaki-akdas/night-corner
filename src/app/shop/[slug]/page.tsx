@@ -92,7 +92,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
         </div>
 
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-400">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-400">
             {product.isVeg ? (
               <span className="chip border border-emerald-500/40 text-emerald-300">
                 <Leaf className="h-3 w-3" /> Veg
