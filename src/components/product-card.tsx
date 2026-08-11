@@ -39,16 +39,20 @@ export function ProductCard({ product }: { product: Product }) {
       className="tilt group card relative overflow-hidden p-3"
       onMouseEnter={() => setHoverIdx(0)}
     >
-      {(product.bestSeller || discountPct > 0) && (
-        <div className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-1.5">
-          {product.bestSeller && (
-            <div className="chip bg-warm-yellow/90 text-night-900 shadow-neon-yellow">
-              <Star className="h-3 w-3 fill-night-900" /> Best Seller
-            </div>
-          )}
-          {discountPct > 0 && (
-            <div className="chip bg-neon-purple/90 text-white shadow-neon">{discountPct}% OFF</div>
-          )}
+      {product.bestSeller && (
+        <div className="absolute left-3 top-3 z-10 chip bg-warm-yellow/90 text-night-900 shadow-neon-yellow">
+          <Star className="h-3 w-3 fill-night-900" /> Best Seller
+        </div>
+      )}
+      {discountPct > 0 && (
+        <div
+          className={`absolute z-10 chip bg-neon-purple/90 text-white shadow-neon ${
+            product.bestSeller
+              ? "left-3 top-[2.7rem] sm:left-auto sm:right-3 sm:top-3"
+              : "right-3 top-3"
+          }`}
+        >
+          {discountPct}% OFF
         </div>
       )}
       {outOfStock && (
