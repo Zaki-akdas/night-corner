@@ -111,7 +111,7 @@ export function ProductCard({ product }: { product: Product }) {
         </Link>
         <p className="mt-0.5 line-clamp-1 text-xs text-slate-400">{product.shortDesc}</p>
 
-        <div className="mt-2 flex items-end gap-2">
+        <div className="mt-2 flex flex-wrap items-end gap-x-2 gap-y-0.5">
           <span className="text-lg font-bold text-white">{formatINR(product.price)}</span>
           {product.mrp > product.price && (
             <span className="pb-0.5 text-xs text-slate-500 line-through">{formatINR(product.mrp)}</span>
@@ -139,18 +139,20 @@ export function ProductCard({ product }: { product: Product }) {
             </button>
           </div>
         ) : (
-          <div className="mt-3 flex items-center gap-2">
-            <div className="flex items-center rounded-xl bg-night-900/80 p-1">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex items-center justify-center rounded-xl bg-night-900/80 p-1">
               <button
                 onClick={() => setLocalQty((q) => Math.max(1, q - 1))}
-                className="grid h-8 w-8 place-items-center rounded-lg text-slate-300 hover:bg-white/10"
+                className="grid h-9 w-9 place-items-center rounded-lg text-slate-300 hover:bg-white/10"
+                aria-label="Decrease quantity"
               >
                 <Minus className="h-3.5 w-3.5" />
               </button>
               <span className="w-6 text-center text-sm font-semibold text-white">{qty}</span>
               <button
                 onClick={() => setLocalQty((q) => Math.min(product.stock, q + 1))}
-                className="grid h-8 w-8 place-items-center rounded-lg text-slate-300 hover:bg-white/10"
+                className="grid h-9 w-9 place-items-center rounded-lg text-slate-300 hover:bg-white/10"
+                aria-label="Increase quantity"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
@@ -172,7 +174,7 @@ export function ProductCard({ product }: { product: Product }) {
                   qty
                 )
               }
-              className="btn-primary flex-1 px-3 py-2 text-sm"
+              className="btn-primary w-full px-3 py-2 text-sm sm:flex-1"
             >
               <ShoppingCart className="h-4 w-4" /> Add
             </button>

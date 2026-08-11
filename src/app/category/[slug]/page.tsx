@@ -19,7 +19,7 @@ export default async function CategoryPage({ params }: { params: { slug: string 
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <div className="card relative mb-8 overflow-hidden p-8">
+      <div className="card relative mb-8 overflow-hidden p-6 sm:p-8">
         {category.image && (
           <Image src={category.image} alt={category.name} fill className="object-cover opacity-30" />
         )}

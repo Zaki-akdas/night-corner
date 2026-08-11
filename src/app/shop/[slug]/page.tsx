@@ -126,7 +126,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
             <span className="pb-1 ml-auto text-sm text-slate-400">{product.unit}</span>
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-slate-300">
+          <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-slate-300 sm:grid-cols-3">
             <div className="card flex items-center gap-2 p-2.5"><Truck className="h-4 w-4 text-neon-blue" /> {settings.deliveryTimeMins} min delivery</div>
             <div className="card flex items-center gap-2 p-2.5"><Shield className="h-4 w-4 text-neon-purple" /> Secure checkout</div>
             <div className="card flex items-center gap-2 p-2.5"><Clock className="h-4 w-4 text-warm-yellow" /> 10 PM–6 AM</div>

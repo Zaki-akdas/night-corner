@@ -40,7 +40,7 @@ export function ProductDetailClient({ product }: { product: Product }) {
 
   return (
     <div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center rounded-xl bg-night-900/80 p-1 ring-1 ring-white/10">
           <button
             onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -62,14 +62,14 @@ export function ProductDetailClient({ product }: { product: Product }) {
         <button
           onClick={addToCart}
           disabled={disabled}
-          className="btn-primary flex-1 py-3 text-base"
+          className="btn-primary min-w-0 flex-1 whitespace-nowrap px-4 py-3 text-sm sm:px-5 sm:text-base"
         >
           <ShoppingCart className="h-5 w-5" /> Add to Cart
         </button>
         <button
           onClick={buyNow}
           disabled={disabled}
-          className="btn-warm py-3 text-base"
+          className="btn-warm w-full py-3 text-base sm:w-auto"
         >
           <Zap className="h-5 w-5" /> Buy Now
         </button>

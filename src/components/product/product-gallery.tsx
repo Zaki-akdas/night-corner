@@ -145,7 +145,7 @@ export function ProductGallery({
                 className="object-contain"
               />
             </motion.div>
-            <p className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-night-900/80 px-4 py-2 text-sm text-white ring-1 ring-white/10">
+            <p className="absolute bottom-6 left-1/2 w-max max-w-[90vw] -translate-x-1/2 truncate rounded-full bg-night-900/80 px-4 py-2 text-sm text-white ring-1 ring-white/10">
               {productName} · {active + 1}/{images.length} · click anywhere to close
             </p>
           </motion.div>

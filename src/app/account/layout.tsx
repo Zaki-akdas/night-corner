@@ -25,7 +25,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
               <div className="truncate text-xs text-slate-400">{user.email}</div>
             </div>
           </div>
-          <nav className="space-y-1">
+          {/* horizontal pill nav on mobile, vertical sidebar on desktop */}
+          <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
             <SideLink href="/account" icon={<User className="h-4 w-4" />} label="Dashboard" exact />
             <SideLink href="/account/orders" icon={<Package className="h-4 w-4" />} label="My Orders" />
             <SideLink href="/account/addresses" icon={<MapPin className="h-4 w-4" />} label="Addresses" />
@@ -56,10 +57,10 @@ function SideLink({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+      className="flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white lg:w-full lg:shrink"
     >
       {icon}
-      {label}
+      <span className="whitespace-nowrap lg:whitespace-normal">{label}</span>
     </Link>
   );
 }

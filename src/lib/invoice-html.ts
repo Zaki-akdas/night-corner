@@ -73,6 +73,19 @@ export function renderInvoiceHtml(
   .status{display:inline-block;padding:4px 10px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:600;text-transform:uppercase}
   .foot{margin-top:32px;padding-top:20px;border-top:1px dashed #cbd5e1;text-align:center;color:#64748b;font-size:12px}
   .foot .thanks{font-size:15px;color:#0f1224;font-weight:600;margin-bottom:4px}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  @media (max-width:640px){
+    body{padding:12px}
+    .sheet{padding:20px;border-radius:12px}
+    .brand{flex-direction:column;gap:14px}
+    .meta{text-align:left}
+    .grid{grid-template-columns:1fr;gap:14px}
+    .totals{justify-content:stretch}
+    .totals table{width:100%}
+    table{font-size:12px}
+    th,td{padding:8px 6px;white-space:nowrap}
+    .foot{margin-top:24px;padding-top:16px}
+  }
   </style></head><body>
   <div class="sheet">
     <div class="brand">
@@ -96,8 +109,8 @@ export function renderInvoiceHtml(
         <p><strong>${escape(order.user.name ?? "Customer")}</strong></p>${addressLines}
       </div>
     </div>
-    <table><thead><tr><th>#</th><th>Item</th><th>SKU</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
-    <tbody>${rows}</tbody></table>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>Item</th><th>SKU</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
     <div class="totals"><table><tbody>
       <tr><td>Subtotal</td><td style="text-align:right">${formatINR(order.subtotal)}</td></tr>
       ${order.discount > 0 ? `<tr><td>Discount</td><td style="text-align:right">- ${formatINR(order.discount)}</td></tr>` : ""}

@@ -11,6 +11,27 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Mobile hardening: prevent iOS auto font scaling & double-tap zoom on controls */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+/* `background-attachment: fixed` is expensive/janky on phones — degrade to scroll */
+@media (max-width: 1024px) {
+  html body {
+    background-attachment: scroll;
+  }
+}
+
 html,
 body {
   background: #05060f;

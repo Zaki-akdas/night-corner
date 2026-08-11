@@ -5,7 +5,7 @@ import { waMeLink } from "@/lib/whatsapp";
 export function CTA({ whatsappNumber }: { whatsappNumber: string }) {
   return (
     <section className="mx-auto max-w-7xl px-4 py-14">
-      <div className="card relative overflow-hidden p-10 text-center">
+      <div className="card relative overflow-hidden p-6 text-center sm:p-10">
         <div className="absolute inset-0 bg-night-radial opacity-60" />
         <div className="relative">
           <div className="text-5xl">🌙</div>

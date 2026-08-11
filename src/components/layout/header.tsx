@@ -78,17 +78,19 @@ export function Header({ settings }: { settings: AppSettings }) {
             : "bg-amber-500/10 text-amber-300"
         }`}
       >
-        <Moon className="h-3.5 w-3.5" />
+        <Moon className="hidden h-3.5 w-3.5 shrink-0 sm:block" />
         {open?.isOpen ? (
-          <span>
-            Open now · ordering until {open.closeTime ? fmtTime(open.closeTime) : "6 AM"} · within {settings.maxRadiusKm} KM
+          <span className="min-w-0 truncate">
+            Open now · ordering until {open.closeTime ? fmtTime(open.closeTime) : "6 AM"}
+            <span className="hidden sm:inline"> · within {settings.maxRadiusKm} KM</span>
           </span>
         ) : open ? (
-          <span>
-            🌙 Night ordering is closed · opens in {fmtCountdown(open.secondsUntilChange)} · {open.nextWindowLabel}
+          <span className="min-w-0 truncate">
+            🌙 Night ordering is closed · opens in {fmtCountdown(open.secondsUntilChange)}
+            <span className="hidden sm:inline"> · {open.nextWindowLabel}</span>
           </span>
         ) : (
-          <span>Open 10 PM – 6 AM · within {settings.maxRadiusKm} KM</span>
+          <span className="min-w-0 truncate">Open 10 PM – 6 AM · within {settings.maxRadiusKm} KM</span>
         )}
       </div>
 
@@ -144,7 +146,7 @@ export function Header({ settings }: { settings: AppSettings }) {
         </nav>
 
         {/* account */}
-        <div className="relative" ref={acRef}>
+        <div className="relative ml-auto" ref={acRef}>
           <button
             onClick={() => setAccountOpen((o) => !o)}
             className="btn-ghost h-10 w-10 rounded-xl p-0 lg:h-auto lg:w-auto lg:px-3"
