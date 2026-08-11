@@ -1,0 +1,9 @@
+# Force-include the SQLite DB in the Vercel upload even though it's gitignored
+!prisma/dev.db
+
+# Never upload secrets or workspace-local files
+.env
+.env.*
+.freebuff/
+.config/
+tsconfig.tsbuildinfo
