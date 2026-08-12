@@ -3,7 +3,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Loader2, Moon } from "lucide-react";
+import Image from "next/image";
+import { Loader2 } from "lucide-react";
 import { Suspense } from "react";
 
 export default function LoginPage() {
@@ -45,10 +46,15 @@ function LoginInner() {
     <div className="mx-auto flex min-h-[80vh] max-w-md items-center px-4 py-10">
       <div className="card w-full p-8">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-neon-purple to-neon-blue shadow-neon">
-            <Moon className="h-7 w-7 text-white" />
-          </div>
-          <h1 className="font-display text-2xl font-extrabold text-white">Welcome back</h1>
+          <Image
+            src="/logo.png"
+            alt="Night Corner"
+            width={224}
+            height={59}
+            priority
+            className="mx-auto drop-shadow-neon"
+          />
+          <h1 className="mt-4 font-display text-2xl font-extrabold text-white">Welcome back</h1>
           <p className="text-sm text-slate-400">Login to continue your midnight order</p>
         </div>
         <form onSubmit={submit} className="space-y-4">

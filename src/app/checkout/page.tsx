@@ -254,7 +254,17 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="mb-6 font-display text-3xl font-extrabold text-white">Checkout</h1>
+      <div className="mb-6 text-center sm:text-left">
+        <Image
+          src="/logo.png"
+          alt="Night Corner"
+          width={240}
+          height={63}
+          priority
+          className="mx-auto drop-shadow-neon sm:mx-0"
+        />
+        <h1 className="mt-3 font-display text-3xl font-extrabold text-white">Checkout</h1>
+      </div>
 
       {open?.isOpen === false && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-warm-yellow/30 bg-warm-yellow/10 p-4 text-warm-yellow">
