@@ -608,6 +608,14 @@ async function main() {
       /Live/.test(deliveryHtml) && /Refresh/.test(deliveryHtml),
       "delivery dashboard auto-refresh indicator rendered"
     );
+    assert(
+      deliveryHtml.includes('aria-label="Mute new-order alerts"'),
+      "new-order alert (sound & vibration) toggle rendered"
+    );
+    assert(
+      deliveryHtml.includes(`data-order-number="${orderJson.orderNumber}"`),
+      "order cards carry data-order-number for alert dedupe"
+    );
 
     const detailRes = await request(`/delivery/${orderId}`, { jar: staffJar });
     const detailHtml = await detailRes.text();

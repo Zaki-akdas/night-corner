@@ -113,7 +113,11 @@ export default async function DeliveryDashboardPage({
             const addr = parseAddressSnapshot(o.addressSnapshot);
             const line = formatAddressLine(addr);
             return (
-              <div key={o.id} className="card space-y-3 p-5 transition hover:border-neon-blue/50">
+              <div
+                key={o.id}
+                data-order-number={o.orderNumber}
+                className="card space-y-3 p-5 transition hover:border-neon-blue/50"
+              >
                 <Link href={`/delivery/${o.id}`} className="group block space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
