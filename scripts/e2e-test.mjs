@@ -472,9 +472,10 @@ async function main() {
     });
     const orderJson = await orderRes.json();
     assert(orderRes.status === 200 && orderJson.orderId, `COD order placed (${orderJson.orderNumber})`);
-    // With notifySms on, placement also runs the store-owner SMS sender in
-    // demo mode — a crash there would fail this assertion.
-    assert(TEST_SETTINGS.notifySms === true, "SMS notifications enabled for the owner-alert path");
+    // With the toggles on, placement also runs the store-owner SMS + customer
+    // confirmation SMS/WhatsApp senders in demo mode — a crash in any of them
+    // would fail this assertion.
+    assert(TEST_SETTINGS.notifySms === true && TEST_SETTINGS.notifyWhatsapp === true, "SMS/WhatsApp toggles on for the alert paths");
     orderId = orderJson.orderId;
 
     const overRes = await request("/api/orders", {
@@ -726,6 +727,9 @@ async function main() {
     assert(deliveredOrder.status === "DELIVERED", `order status persisted (${deliveredOrder.status})`);
     assert(deliveredOrder.deliveryPhotoUrl === photoJson.url, "delivery photo URL persisted on the order");
 
+    // DELIVERED also fires the customer SMS/WhatsApp senders in demo mode
+    // (external — verified via live site; the in-app notification below is the
+    // observable proxy).
     const deliveredNotif = await prisma.notification.findFirst({
       where: { userId, type: "ORDER", body: { contains: "Delivered" } },
       orderBy: { createdAt: "desc" },

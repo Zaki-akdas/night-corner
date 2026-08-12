@@ -9,6 +9,7 @@ import { computeOrderPricing } from "@/lib/pricing";
 import { generateOrderNumber } from "@/lib/orders";
 import { notifyOrderToBusiness } from "@/lib/whatsapp";
 import { notifyOrderToBusinessSms } from "@/lib/sms";
+import { notifyCustomerOrderStatus } from "@/lib/customer-alerts";
 import { logActivity, notifyAdmin } from "@/lib/admin";
 import { broadcastOrderUpdate } from "@/lib/realtime";
 
@@ -206,6 +207,9 @@ export async function POST(req: Request) {
     if (settings.notifySms) {
       notifyOrderToBusinessSms(result, addressText, customerName, customerMobile).catch(() => {});
     }
+
+    // Confirm the order to the customer via SMS/WhatsApp (per store toggles).
+    notifyCustomerOrderStatus(customerMobile, result, "PLACED", new URL(req.url).origin).catch(() => {});
 
     // Live push to the delivery dashboard / tracking pages.
     await broadcastOrderUpdate({
