@@ -18,6 +18,7 @@ import { useOpenStatus } from "@/hooks/use-open-status";
 import { fmtCountdown } from "@/lib/hours";
 import { useRouter } from "next/navigation";
 import type { AppSettings } from "@/lib/settings";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 const NAV = [
   { href: "/", label: "Home" },
@@ -191,6 +192,8 @@ export function Header({ settings }: { settings: AppSettings }) {
             </div>
           )}
         </div>
+
+        <ThemeSwitcher />
 
         <Link href="/cart" className="btn-ghost relative h-10 w-10 rounded-xl p-0">
           <ShoppingCart className="h-5 w-5" />

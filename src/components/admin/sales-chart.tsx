@@ -20,8 +20,8 @@ export function SalesChart({
         <AreaChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
           <defs>
             <linearGradient id="sales" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#a855f7" stopOpacity={0.6} />
-              <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.05} />
+              <stop offset="0%" stopColor="rgb(var(--accent-purple))" stopOpacity={0.6} />
+              <stop offset="100%" stopColor="rgb(var(--accent-blue))" stopOpacity={0.05} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff12" />
@@ -39,7 +39,7 @@ export function SalesChart({
           <Area
             type="monotone"
             dataKey="sales"
-            stroke="#a855f7"
+            stroke="rgb(var(--accent-purple))"
             strokeWidth={2}
             fill="url(#sales)"
           />

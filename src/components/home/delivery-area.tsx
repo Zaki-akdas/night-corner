@@ -64,9 +64,9 @@ export function DeliveryArea({ settings }: { settings: AppSettings }) {
           <svg viewBox="0 0 100 100" className="h-full w-full">
             <defs>
               <radialGradient id="areaglow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#a855f7" stopOpacity="0.35" />
-                <stop offset="70%" stopColor="#38bdf8" stopOpacity="0.12" />
-                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+                <stop offset="0%" stopColor="rgb(var(--accent-purple))" stopOpacity="0.35" />
+                <stop offset="70%" stopColor="rgb(var(--accent-blue))" stopOpacity="0.12" />
+                <stop offset="100%" stopColor="rgb(var(--accent-blue))" stopOpacity="0" />
               </radialGradient>
               <pattern id="grid" width="5" height="5" patternUnits="userSpaceOnUse">
                 <path d="M 5 0 L 0 0 0 5" fill="none" stroke="#ffffff" strokeOpacity="0.06" strokeWidth="0.2" />
@@ -81,7 +81,7 @@ export function DeliveryArea({ settings }: { settings: AppSettings }) {
                 cy="50"
                 r={r / 2}
                 fill="none"
-                stroke="#38bdf8"
+                stroke="rgb(var(--accent-blue))"
                 strokeOpacity="0.25"
                 strokeWidth="0.25"
                 strokeDasharray="1 1"
@@ -93,7 +93,7 @@ export function DeliveryArea({ settings }: { settings: AppSettings }) {
               cy="50"
               r={(maxRadiusKm / viewKm) * 50}
               fill="none"
-              stroke="#a855f7"
+              stroke="rgb(var(--accent-purple))"
               strokeWidth="0.5"
             />
             {/* shop pin */}
@@ -117,7 +117,7 @@ export function DeliveryArea({ settings }: { settings: AppSettings }) {
 function CustomerMarker({ dx, dy, label }: { dx: number; dy: number; label: string }) {
   return (
     <g>
-      <circle cx={50 + dx} cy={50 + dy} r="1.4" fill="#38bdf8" />
+      <circle cx={50 + dx} cy={50 + dy} r="1.4" fill="rgb(var(--accent-blue))" />
       <text x={50 + dx} y={50 + dy - 2.5} textAnchor="middle" fontSize="2.4" fill="#bae6fd">
         {label}
       </text>

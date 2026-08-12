@@ -10,7 +10,7 @@ export function CategoryChart({ data }: { data: { name: string; sold: number }[]
           <XAxis dataKey="name" stroke="#64748b" fontSize={10} interval={0} angle={-15} textAnchor="end" height={50} />
           <YAxis stroke="#64748b" fontSize={11} />
           <Tooltip contentStyle={{ background: "#0a0c1e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12 }} />
-          <Bar dataKey="sold" fill="#a855f7" radius={[6, 6, 0, 0]} />
+          <Bar dataKey="sold" fill="rgb(var(--accent-purple))" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

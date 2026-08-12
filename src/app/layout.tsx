@@ -9,6 +9,7 @@ import { getSettings } from "@/lib/settings";
 import { CartProvider } from "@/components/cart/cart-context";
 import { ToastHost } from "@/components/ui/toast";
 import { PWAInit } from "@/components/pwa-init";
+import { BrandIntro } from "@/components/brand-intro";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const sora = Sora({ subsets: ["latin"], variable: "--font-display", weight: ["400", "600", "700", "800"] });
@@ -66,10 +67,17 @@ export default async function RootLayout({
     <html lang="en" className={`${inter.variable} ${sora.variable}`}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
+        {/* Apply the saved theme before first paint so there's no flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("nc-theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}`,
+          }}
+        />
       </head>
       <body className="font-sans antialiased">
         <Providers>
           <CartProvider>
+            <BrandIntro />
             <div className="relative flex min-h-screen flex-col">
               <Header settings={settings} />
               <main className="flex-1">{children}</main>
