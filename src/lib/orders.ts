@@ -4,7 +4,7 @@ import { prisma } from "./prisma";
 export async function generateOrderNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `NC-${year}-`;
-  // Find the highest existing sequence for this year (row-locked safe enough for SQLite demo).
+  // Find the highest existing sequence for this year (row-locked inside the transaction).
   const last = await prisma.order.findFirst({
     where: { orderNumber: { startsWith: prefix } },
     orderBy: { orderNumber: "desc" },

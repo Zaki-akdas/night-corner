@@ -77,7 +77,10 @@ NextAuth. Open **10 PM – 6 AM**, delivery **within 10 KM**.
 
 ```bash
 npm install
-npm run db:push      # creates SQLite DB (prisma/dev.db)
+# Requires a PostgreSQL connection (Supabase recommended):
+#   DATABASE_URL  -> Supabase pooler (serverless runtime)
+#   DIRECT_URL    -> Supabase direct connection (migrations/seed)
+npm run db:push      # creates the schema in PostgreSQL
 npm run db:seed      # categories, 53 products, coupons, admin + demo customer
 npm run dev          # http://localhost:3000
 ```
@@ -94,15 +97,18 @@ Try coupon codes **NIGHT10** (10% off over ₹199) and **FREESHIP** (free delive
 
 ## ⚙️ Environment variables (`.env`)
 
-The app runs with zero external services using SQLite. For production set:
+The app runs on **PostgreSQL via Supabase** (provider is `postgresql` in
+`schema.prisma`). For production set:
 
 ```
-DATABASE_URL="postgresql://..."        # switch schema.prisma provider to postgresql
+# Supabase Postgres — pooler for serverless, direct for CLI/migrations
+DATABASE_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DIRECT_URL="postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres"
 NEXTAUTH_URL="https://yourdomain"
 NEXTAUTH_SECRET="<long random>"
 
-# Supabase (optional storage/auth)
-SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+# Supabase
+SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SUPABASE_JWKS_URL
 
 # Maps (optional; falls back to built-in haversine distance)
 NEXT_PUBLIC_MAPS_API_KEY, MAPS_API_KEY
@@ -127,7 +133,7 @@ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD / SEED_ADMIN_NAME
 
 - **Framework:** Next.js 14 App Router, React 18, TypeScript
 - **Styling:** Tailwind CSS + custom design tokens (neon/glass/night)
-- **DB/ORM:** Prisma (SQLite for dev, Postgres-ready)
+- **DB/ORM:** Prisma over PostgreSQL (Supabase)
 - **Auth:** NextAuth (Credentials) with bcrypt + role-based access
 - **Animation:** Framer Motion, CSS 3D (lightweight; no heavy WebGL by default)
 - **Charts:** Recharts

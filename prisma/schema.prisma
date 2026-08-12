@@ -1,12 +1,15 @@
 // Night Corner database schema
-// SQLite for zero-config local/preview; switch provider to "postgresql" and DATABASE_URL for production.
+// PostgreSQL (Supabase) in production; DATABASE_URL points at the Supabase
+// pooler for serverless runtimes and DIRECT_URL at the direct connection for
+// migrations/seeding.
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ───────────────────────── Auth & Users ─────────────────────────
