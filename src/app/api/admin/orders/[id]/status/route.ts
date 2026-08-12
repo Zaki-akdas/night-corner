@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, logActivity, notifyAdmin } from "@/lib/admin";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/types";
+import { broadcastOrderUpdate } from "@/lib/realtime";
 
 const schema = z.object({ status: z.enum(ORDER_STATUSES as [OrderStatus, ...OrderStatus[]]) });
 
@@ -66,6 +67,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (newStatus === "CANCELLED") {
     notifyAdmin("ORDER", "🔔 Order cancelled", `${order.orderNumber} was cancelled`).catch(() => {});
   }
+
+  // Live push to the delivery dashboard / tracking pages. Awaited so the
+  // serverless function doesn't freeze before the WebSocket completes.
+  await broadcastOrderUpdate({ orderId: order.id, orderNumber: order.orderNumber, status: newStatus }).catch(() => {});
 
   // Await the activity-log write — fire-and-forget promises can be dropped
   // when a serverless function (Vercel) freezes right after the response.

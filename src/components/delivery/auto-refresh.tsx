@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
+import { useOrderUpdates } from "@/lib/realtime-client";
 
-// How often the dashboard re-fetches orders (ms).
-const POLL_INTERVAL_MS = 30_000;
+// Slow safety net: realtime is the primary trigger; this only catches gaps
+// when the WebSocket is down (e.g. flaky networks, blocked WS).
+const FALLBACK_POLL_MS = 60_000;
 
 export function AutoRefresh() {
   const router = useRouter();
@@ -16,16 +18,27 @@ export function AutoRefresh() {
   const [visible, setVisible] = useState(
     () => typeof document !== "undefined" && document.visibilityState === "visible"
   );
+  const [mounted, setMounted] = useState(false);
+  const [live, setLive] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const sync = () => {
+    router.refresh();
+    setLastSync(new Date());
+  };
+
+  // Live pushes arrive instantly over Supabase Realtime.
+  const rtStatus = useOrderUpdates(() => {
+    if (typeof document !== "undefined" && document.visibilityState === "visible") sync();
+  });
+  useEffect(() => {
+    setLive(rtStatus === "connected");
+  }, [rtStatus]);
 
   useEffect(() => {
-    const sync = () => {
-      router.refresh();
-      setLastSync(new Date());
-    };
-
     const start = () => {
       if (timer.current) return;
-      timer.current = setInterval(sync, POLL_INTERVAL_MS);
+      timer.current = setInterval(sync, FALLBACK_POLL_MS);
     };
     const stop = () => {
       if (timer.current) {
@@ -58,17 +71,15 @@ export function AutoRefresh() {
       <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
         <span
           className={`inline-block h-1.5 w-1.5 rounded-full ${
-            visible ? "animate-pulse bg-emerald-400" : "bg-slate-500"
+            live ? "animate-pulse bg-emerald-400" : visible ? "bg-amber-400" : "bg-slate-500"
           }`}
           aria-hidden
         />
-        {lastSync ? (visible ? `Live · updated ${ago}s ago` : "Paused") : "Live"}
+        {!mounted || visible ? (live ? "Live · realtime" : "Live · polling") : "Paused"}
+        {lastSync && mounted && visible && <span className="text-slate-500">· {ago}s</span>}
       </span>
       <button
-        onClick={() => {
-          router.refresh();
-          setLastSync(new Date());
-        }}
+        onClick={sync}
         className="btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
       >
         <RefreshCw className="h-3.5 w-3.5" /> Refresh

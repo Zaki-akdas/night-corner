@@ -7,6 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { sendWhatsappMessage } from "@/lib/whatsapp";
 import { sendSmsMessage } from "@/lib/sms";
 import { parseAddressSnapshot } from "@/lib/address";
+import { broadcastOrderUpdate } from "@/lib/realtime";
 
 // Delivery staff may only move orders forward through the final two steps.
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
@@ -111,6 +112,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (newStatus === "DELIVERED") {
     notifyAdmin("ORDER", "✅ Order delivered", `${order.orderNumber} was delivered`).catch(() => {});
   }
+
+  // Live push to the delivery dashboard / tracking pages. Awaited so the
+  // serverless function doesn't freeze before the WebSocket completes.
+  await broadcastOrderUpdate({ orderId: order.id, orderNumber: order.orderNumber, status: newStatus }).catch(() => {});
 
   await logActivity({
     userId: staff.id,

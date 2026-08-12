@@ -9,6 +9,7 @@ import { computeOrderPricing } from "@/lib/pricing";
 import { generateOrderNumber } from "@/lib/orders";
 import { notifyOrderToBusiness } from "@/lib/whatsapp";
 import { logActivity, notifyAdmin } from "@/lib/admin";
+import { broadcastOrderUpdate } from "@/lib/realtime";
 
 const schema = z.object({
   items: z
@@ -198,6 +199,13 @@ export async function POST(req: Request) {
 
     // External WhatsApp notification — non-blocking is fine.
     notifyOrderToBusiness(result, addressText, customerName, customerMobile).catch(() => {});
+
+    // Live push to the delivery dashboard / tracking pages.
+    await broadcastOrderUpdate({
+      orderId: result.id,
+      orderNumber: result.orderNumber,
+      status: result.status,
+    }).catch(() => {});
 
     return NextResponse.json({
       orderId: result.id,

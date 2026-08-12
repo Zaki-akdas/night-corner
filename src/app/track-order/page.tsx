@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { OrderTimeline } from "@/components/account/order-timeline";
+import { useOrderUpdates } from "@/lib/realtime-client";
 import { Loader2, MapPin, Navigation, Package, Search, Truck } from "lucide-react";
 import { STATUS_FLOW } from "@/lib/types";
 import { statusLabel } from "@/lib/orders";
@@ -20,7 +21,7 @@ type TrackData = {
   shop: { lat: number; lng: number };
 };
 
-const POLL_MS = 10_000;
+const FALLBACK_POLL_MS = 30_000;
 
 export default function TrackOrderPage() {
   // useSearchParams must be inside a Suspense boundary for static generation.
@@ -68,14 +69,19 @@ function TrackOrderInner() {
     if (fromUrl) fetchOrder(fromUrl);
   }, [searchParams, fetchOrder]);
 
-  // Live updates: re-poll while an order is being tracked and still active.
+  // Live updates: Supabase Realtime pushes status changes instantly; a slow
+  // fallback poll only covers WebSocket gaps while the order is still active.
   useEffect(() => {
     if (!data) return;
     const active = !["DELIVERED", "CANCELLED", "REFUNDED"].includes(data.status);
     if (!active) return;
-    const t = setInterval(() => fetchOrder(data.orderNumber, true), POLL_MS);
+    const t = setInterval(() => fetchOrder(data.orderNumber, true), FALLBACK_POLL_MS);
     return () => clearInterval(t);
   }, [data, fetchOrder]);
+
+  useOrderUpdates((ev) => {
+    if (data && ev.orderNumber === data.orderNumber) fetchOrder(ev.orderNumber, true);
+  });
 
   const search = (e: React.FormEvent) => {
     e.preventDefault();
