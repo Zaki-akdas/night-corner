@@ -638,12 +638,18 @@ async function main() {
 
     const ofdOrder = await prisma.order.findUnique({ where: { id: orderId } });
     assert(ofdOrder.status === "OUT_FOR_DELIVERY", `order status persisted (${ofdOrder.status})`);
+    assert(/^\d{4}$/.test(ofdOrder.deliveryPin || ""), "order has a 4-digit delivery PIN");
+    const ofdPin = ofdOrder.deliveryPin;
 
     const ofdNotif = await prisma.notification.findFirst({
       where: { userId, type: "ORDER", body: { contains: "Out for Delivery" } },
       orderBy: { createdAt: "desc" },
     });
     assert(!!ofdNotif, "customer notified of out-for-delivery");
+    assert(
+      ofdNotif && ofdNotif.body.includes(ofdPin),
+      "out-for-delivery notification includes the delivery PIN"
+    );
 
     const ofdActivity = await prisma.activityLog.findFirst({
       where: { action: "ORDER_STATUS_CHANGED", entityId: orderId, meta: { contains: "OUT_FOR_DELIVERY" } },
@@ -659,9 +665,6 @@ async function main() {
     assert(invalidRes.status === 400, "re-marks OUT_FOR_DELIVERY rejected (forward-only)");
 
     // Proof of delivery: a photo + the customer's PIN are required first.
-    const ofdRecord = await prisma.order.findUnique({ where: { id: orderId } });
-    assert(/^\d{4}$/.test(ofdRecord.deliveryPin || ""), "order has a 4-digit delivery PIN");
-
     const noPodRes = await request(`/api/delivery/orders/${orderId}/status`, {
       method: "PATCH",
       jar: staffJar,
@@ -703,7 +706,7 @@ async function main() {
       body: JSON.stringify({
         status: "DELIVERED",
         deliveryPhotoUrl: photoJson.url,
-        deliveryPin: ofdRecord.deliveryPin,
+        deliveryPin: ofdPin,
       }),
     });
     assert(deliveredRes.status === 200, "staff marks order DELIVERED with photo + PIN");
@@ -721,7 +724,7 @@ async function main() {
     // The customer's order page shows their delivery PIN.
     const custOrderRes = await request(`/account/orders/${orderId}`, { jar });
     const custOrderHtml = await custOrderRes.text();
-    assert(custOrderHtml.includes(ofdRecord.deliveryPin), "customer order page shows the delivery PIN");
+    assert(custOrderHtml.includes(ofdPin), "customer order page shows the delivery PIN");
 
     // The dashboard only lists active orders — a delivered order disappears.
     const afterRes = await request("/delivery", { jar: staffJar });

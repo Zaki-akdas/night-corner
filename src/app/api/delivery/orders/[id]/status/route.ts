@@ -65,12 +65,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   // Notify the customer (awaited — serverless may freeze after the response).
   try {
+    const body =
+      newStatus === "OUT_FOR_DELIVERY" && order.deliveryPin
+        ? `Your order ${order.orderNumber} is now Out for Delivery. 🛵\nDelivery PIN: ${order.deliveryPin} — share it at handover.`
+        : `Your order ${order.orderNumber} is now ${statusLabel(newStatus)}`;
     await prisma.notification.create({
       data: {
         userId: order.userId,
         type: "ORDER",
         title: "Order update",
-        body: `Your order ${order.orderNumber} is now ${statusLabel(newStatus)}`,
+        body,
       },
     });
   } catch {
@@ -89,6 +93,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       const msg = [
         `🌙 Your Night Corner order ${order.orderNumber} is out for delivery!`,
         order.eta ? `Estimated arrival: ${order.eta}.` : "",
+        order.deliveryPin ? `🔑 Your delivery PIN: ${order.deliveryPin} (tell the delivery person at handover)` : "",
         `Track live: ${trackUrl}`,
       ]
         .filter(Boolean)
