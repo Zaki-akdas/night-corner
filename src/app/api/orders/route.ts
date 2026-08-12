@@ -154,7 +154,9 @@ export async function POST(req: Request) {
       return order;
     });
 
-    // Fire notifications (non-blocking).
+    // Notifications & activity log. These are DB writes, so await them before
+    // responding — on serverless (Vercel) the function may be frozen right after
+    // the response, silently dropping fire-and-forget promises.
     const addressText = [
       address.fullName,
       address.mobile,
@@ -166,30 +168,34 @@ export async function POST(req: Request) {
     const customerName = session.user.name || address.fullName;
     const customerMobile = address.mobile;
 
-    notifyOrderToBusiness(result, addressText, customerName, customerMobile).catch(() => {});
-    notifyAdmin(
-      "ORDER",
-      "🔔 New order",
-      `${orderNumber} · ₹${result.total} · ${customerName}`
-    ).catch(() => {});
-    prisma.notification
-      .create({
+    try {
+      await prisma.notification.create({
         data: {
           userId: session.user.id,
           type: "ORDER",
           title: "Order confirmed 🎉",
           body: `Your order ${orderNumber} has been placed.`,
         },
-      })
-      .catch(() => {});
-    logActivity({
-      userId: session.user.id,
-      userName: customerName,
-      action: "ORDER_PLACED",
-      entity: "Order",
-      entityId: result.id,
-      meta: { total: result.total },
-    }).catch(() => {});
+      });
+      await logActivity({
+        userId: session.user.id,
+        userName: customerName,
+        action: "ORDER_PLACED",
+        entity: "Order",
+        entityId: result.id,
+        meta: { total: result.total },
+      });
+      await notifyAdmin(
+        "ORDER",
+        "🔔 New order",
+        `${orderNumber} · ₹${result.total} · ${customerName}`
+      );
+    } catch {
+      // Non-critical: order is already placed; never fail the response on these.
+    }
+
+    // External WhatsApp notification — non-blocking is fine.
+    notifyOrderToBusiness(result, addressText, customerName, customerMobile).catch(() => {});
 
     return NextResponse.json({
       orderId: result.id,
