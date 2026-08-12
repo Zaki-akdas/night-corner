@@ -388,7 +388,10 @@ async function main() {
       body: new URLSearchParams({ csrfToken, identifier: email, password }).toString(),
     });
     assert(loginRes.status === 302, "login redirects on success");
-    assert(jar.cookies.has("next-auth.session-token"), "session cookie issued");
+    // next-auth names the session cookie next-auth.session-token locally but
+    // __Secure-next-auth.session-token on HTTPS (Vercel) — accept both.
+    const sessionCookie = [...jar.cookies.keys()].find((k) => k.includes("next-auth.session-token"));
+    assert(!!sessionCookie, `session cookie issued (${sessionCookie || "missing"})`);
 
     const addrRes = await request("/api/account/addresses", {
       method: "POST",
