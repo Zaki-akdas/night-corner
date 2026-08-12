@@ -9,7 +9,11 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
  * limit and fail the build. Cap every client's pool unless the URL already
  * sets its own limit.
  */
-const POOL_LIMIT = 6;
+// Keep the per-instance pool tiny: Vercel can spin many serverless instances
+// during a traffic burst, and each pool counts toward Supabase's 200-connection
+// cap (6 per instance × 34 instances already breaks it). 2 is plenty for a
+// night shop and pushes the failure point to ~100 concurrent cold instances.
+const POOL_LIMIT = 2;
 
 function withPoolLimit(url: string | undefined): string | undefined {
   if (!url || !url.startsWith("postgres")) return url;

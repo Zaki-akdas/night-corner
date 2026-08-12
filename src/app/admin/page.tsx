@@ -120,11 +120,11 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="card p-5 lg:col-span-2">
+        <div className="card min-w-0 p-5 lg:col-span-2">
           <h2 className="mb-4 font-bold text-white">Sales — last 14 nights</h2>
           <SalesChart data={salesByDay} />
         </div>
-        <div className="card p-5">
+        <div className="card min-w-0 p-5">
           <h2 className="mb-4 font-bold text-white">Top Products</h2>
           <ul className="space-y-3">
             {topProducts.map((p, i) => (
@@ -141,7 +141,7 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="card p-5 lg:col-span-2">
+        <div className="card min-w-0 p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-bold text-white">Recent Orders</h2>
             <Link href="/admin/orders" className="text-sm text-neon-blue hover:underline">View all</Link>
@@ -176,7 +176,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="card p-5">
+        <div className="card min-w-0 p-5">
           <div className="mb-4 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-400" />
             <h2 className="font-bold text-white">Low Stock</h2>
