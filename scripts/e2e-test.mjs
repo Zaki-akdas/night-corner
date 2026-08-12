@@ -29,6 +29,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 3100;
@@ -120,6 +121,12 @@ async function waitForServer(timeoutMs) {
 
 // Mirrors DEFAULT_SETTINGS in src/lib/settings.ts, with the shop forced open
 // so the ordering API accepts orders regardless of the wall clock.
+// Admin credentials seeded into the test schema so the admin panel flow can
+// log in through the real next-auth credentials provider.
+const ADMIN_EMAIL = "admin-e2e@nightcorner.in";
+const ADMIN_MOBILE = "9876500099";
+const ADMIN_PASSWORD = "AdminE2ETest123!";
+
 const TEST_SETTINGS = {
   businessName: "NIGHT CORNER",
   slogan: "Your Night. Your Essentials.",
@@ -218,6 +225,7 @@ async function cleanupRemoteData(prisma, userId, orderId) {
     await prisma.user.delete({ where: { id: userId } }).catch(() => {});
     ok("removed test user");
   }
+  await prisma.user.delete({ where: { email: ADMIN_EMAIL } }).catch(() => {});
   await prisma.product.deleteMany({ where: { sku: { startsWith: "TEST-" } } });
   await prisma.category.deleteMany({ where: { slug: "test-category" } });
   ok("removed seeded test data (schema kept for preview builds)");
@@ -329,7 +337,20 @@ async function main() {
     update: { value: JSON.stringify(TEST_SETTINGS) },
     create: { key: "app_settings", value: JSON.stringify(TEST_SETTINGS) },
   });
-  ok(`seeded category + ${chips.name} (₹${chips.price}) + ${drink.name} (₹${drink.price})`);
+  const adminHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+  const admin = await prisma.user.upsert({
+    where: { email: ADMIN_EMAIL },
+    update: { passwordHash: adminHash, role: "ADMIN", status: "ACTIVE", name: "E2E Admin", mobile: ADMIN_MOBILE },
+    create: {
+      email: ADMIN_EMAIL,
+      name: "E2E Admin",
+      mobile: ADMIN_MOBILE,
+      passwordHash: adminHash,
+      role: "ADMIN",
+      status: "ACTIVE",
+    },
+  });
+  ok(`seeded category + ${chips.name} (₹${chips.price}) + ${drink.name} (₹${drink.price}) + admin ${ADMIN_EMAIL}`);
 
   // 3. Local mode: start the app against the test schema on a dedicated port
   // and an isolated build directory. Remote mode: target is already running.
@@ -480,6 +501,58 @@ async function main() {
 
     const activity = await prisma.activityLog.findFirst({ where: { userId, action: "ORDER_PLACED" }, orderBy: { createdAt: "desc" } });
     assert(!!activity, "admin activity log persisted (regression: fire-and-forget race)");
+
+    // 5b. Admin panel: login → view orders → update status → verify.
+    log("admin panel: login → view orders → update status…");
+
+    const adminJar = new CookieJar();
+    const adminCsrfRes = await request("/api/auth/csrf", { jar: adminJar });
+    const { csrfToken: adminCsrf } = await adminCsrfRes.json();
+    const adminLoginRes = await request("/api/auth/callback/credentials", {
+      method: "POST",
+      jar: adminJar,
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ csrfToken: adminCsrf, identifier: ADMIN_EMAIL, password: ADMIN_PASSWORD }).toString(),
+    });
+    assert(adminLoginRes.status === 302, "admin login redirects on success");
+    assert(
+      [...adminJar.cookies.keys()].some((k) => k.includes("next-auth.session-token")),
+      "admin session cookie issued"
+    );
+
+    // The admin gate: no session and a non-admin session are both redirected away.
+    const anonGate = await request("/admin/orders");
+    assert(anonGate.status === 307 || anonGate.status === 302, "admin orders page redirects anonymous visitors");
+    const customerGate = await request("/admin/orders", { jar });
+    assert(customerGate.status === 307 || customerGate.status === 302, "admin orders page redirects customer sessions");
+
+    const ordersPageRes = await request("/admin/orders", { jar: adminJar });
+    const ordersHtml = await ordersPageRes.text();
+    assert(ordersPageRes.status === 200, "admin orders page loads for admin (200)");
+    assert(ordersHtml.includes(orderJson.orderNumber), `order ${orderJson.orderNumber} visible in admin orders list`);
+
+    const statusRes = await request(`/api/admin/orders/${orderId}/status`, {
+      method: "PATCH",
+      jar: adminJar,
+      body: JSON.stringify({ status: "CONFIRMED" }),
+    });
+    const statusJson = await statusRes.json();
+    assert(statusRes.status === 200 && statusJson.ok === true, "order status updated via admin API");
+
+    const updatedOrder = await prisma.order.findUnique({ where: { id: orderId } });
+    assert(updatedOrder.status === "CONFIRMED", `order status persisted as ${updatedOrder.status}`);
+
+    const statusNotif = await prisma.notification.findFirst({
+      where: { userId, type: "ORDER", title: "Order update" },
+      orderBy: { createdAt: "desc" },
+    });
+    assert(!!statusNotif && /CONFIRMED/i.test(statusNotif.body), "customer notified of status change");
+
+    const statusActivity = await prisma.activityLog.findFirst({
+      where: { action: "ORDER_STATUS_CHANGED", entityId: orderId },
+      orderBy: { createdAt: "desc" },
+    });
+    assert(!!statusActivity, "admin activity logged for status change");
   } finally {
     // 6. Cleanup.
     log("cleaning up…");

@@ -67,7 +67,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     notifyAdmin("ORDER", "🔔 Order cancelled", `${order.orderNumber} was cancelled`).catch(() => {});
   }
 
-  logActivity({
+  // Await the activity-log write — fire-and-forget promises can be dropped
+  // when a serverless function (Vercel) freezes right after the response.
+  await logActivity({
     userId: admin.id,
     userName: admin.name ?? "Admin",
     action: "ORDER_STATUS_CHANGED",
