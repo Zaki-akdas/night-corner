@@ -66,7 +66,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   deliveryTimeMins: 35,
   serviceablePincodes: [],
   whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "918989418270",
-  contactEmail: "hello@nightcorner.in",
+  contactEmail: "nightcorner.shop@gmail.com",
   contactPhone: "+91 89894 18270",
   socials: { instagram: "nightcorner", facebook: "nightcorner" },
   codEnabled: true,

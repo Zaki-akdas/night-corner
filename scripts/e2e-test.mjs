@@ -158,7 +158,7 @@ const TEST_SETTINGS = {
   deliveryTimeMins: 35,
   serviceablePincodes: [],
   whatsappNumber: "919999999999",
-  contactEmail: "hello@nightcorner.in",
+  contactEmail: "nightcorner.shop@gmail.com",
   contactPhone: "+91 99999 99999",
   socials: { instagram: "nightcorner", facebook: "nightcorner" },
   codEnabled: true,
