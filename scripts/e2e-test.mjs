@@ -731,6 +731,69 @@ async function main() {
     const afterHtml = await afterRes.text();
     assert(!afterHtml.includes(orderJson.orderNumber), "delivered order leaves the delivery dashboard");
 
+    // 5e2. Dashboard filters: status / payment / time / sort.
+    log("delivery dashboard filters…");
+    const seedProduct = await prisma.product.findFirst();
+    const mkFilterOrder = (num, paymentMethod, createdAt) =>
+      prisma.order.create({
+        data: {
+          orderNumber: num,
+          status: "PLACED",
+          paymentMethod,
+          paymentStatus: "PENDING",
+          subtotal: 100,
+          deliveryCharge: 20,
+          tax: 5,
+          total: 125,
+          distanceKm: 1,
+          eta: "35 mins",
+          deliveryPin: "1234",
+          addressSnapshot: JSON.stringify({ fullName: "Test User", mobile: "+919999999999", city: "Indore", pincode: "452010" }),
+          items: {
+            create: {
+              productId: seedProduct.id,
+              name: seedProduct.name,
+              sku: seedProduct.sku,
+              image: seedProduct.image,
+              unitPrice: 100,
+              quantity: 1,
+              lineTotal: 100,
+            },
+          },
+          userId,
+          createdAt,
+        },
+      });
+    const filterNew = await mkFilterOrder("NC-TEST-COD-1", "COD", new Date());
+    const filterOld = await mkFilterOrder("NC-TEST-UPI-1", "UPI", new Date(Date.now() - 2 * 3600_000));
+
+    const dashAll = await (await request("/delivery", { jar: staffJar })).text();
+    assert(dashAll.includes("NC-TEST-COD-1") && dashAll.includes("NC-TEST-UPI-1"), "dashboard shows all active orders by default");
+
+    const dashCod = await (await request("/delivery?payment=COD", { jar: staffJar })).text();
+    assert(dashCod.includes("NC-TEST-COD-1") && !dashCod.includes("NC-TEST-UPI-1"), "payment filter keeps only COD orders");
+
+    const dashUpi = await (await request("/delivery?payment=UPI", { jar: staffJar })).text();
+    assert(dashUpi.includes("NC-TEST-UPI-1") && !dashUpi.includes("NC-TEST-COD-1"), "payment filter keeps only UPI orders");
+
+    const dash1h = await (await request("/delivery?time=1h", { jar: staffJar })).text();
+    assert(dash1h.includes("NC-TEST-COD-1") && !dash1h.includes("NC-TEST-UPI-1"), "time filter hides orders older than the window");
+
+    const dashStatus = await (await request("/delivery?status=PACKED", { jar: staffJar })).text();
+    assert(
+      dashStatus.includes("No orders match these filters"),
+      "status filter shows the no-match empty state"
+    );
+
+    const dashNewest = await (await request("/delivery?sort=newest", { jar: staffJar })).text();
+    assert(
+      dashNewest.indexOf("NC-TEST-COD-1") < dashNewest.indexOf("NC-TEST-UPI-1"),
+      "newest-first sort lists the fresh order before the older one"
+    );
+
+    await prisma.order.deleteMany({ where: { orderNumber: { in: ["NC-TEST-COD-1", "NC-TEST-UPI-1"] } } });
+    ok("removed filter-test orders");
+
     // 5f. Customer live tracking: public track API returns status + map data.
     log("live tracking: track API + page…");
 
