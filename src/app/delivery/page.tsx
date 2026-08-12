@@ -5,6 +5,7 @@ import { formatINR } from "@/lib/settings";
 import { statusLabel } from "@/lib/orders";
 import { parseAddressSnapshot, formatAddressLine } from "@/lib/address";
 import { RefreshButton } from "@/components/delivery/refresh-button";
+import { DeliveryStatusActions } from "@/components/delivery/status-actions";
 import { Bike, MapPin, Package } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -55,41 +56,40 @@ export default async function DeliveryDashboardPage() {
             const addr = parseAddressSnapshot(o.addressSnapshot);
             const line = formatAddressLine(addr);
             return (
-              <Link
-                key={o.id}
-                href={`/delivery/${o.id}`}
-                className="card group relative block space-y-3 p-5 transition hover:border-neon-blue/50"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-display text-lg font-extrabold text-white">{o.orderNumber}</div>
-                    <div className="text-xs text-slate-400">
-                      {o.items.length} item{o.items.length === 1 ? "" : "s"} · {formatINR(o.total)} ·{" "}
-                      {o.paymentMethod}
+              <div key={o.id} className="card space-y-3 p-5 transition hover:border-neon-blue/50">
+                <Link href={`/delivery/${o.id}`} className="group block space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-display text-lg font-extrabold text-white">{o.orderNumber}</div>
+                      <div className="text-xs text-slate-400">
+                        {o.items.length} item{o.items.length === 1 ? "" : "s"} · {formatINR(o.total)} ·{" "}
+                        {o.paymentMethod}
+                      </div>
                     </div>
+                    <span
+                      className={`chip ${
+                        o.status === "OUT_FOR_DELIVERY"
+                          ? "bg-neon-blue/20 text-neon-blue"
+                          : "bg-neon-purple/20 text-neon-purple"
+                      }`}
+                    >
+                      {statusLabel(o.status)}
+                    </span>
                   </div>
-                  <span
-                    className={`chip ${
-                      o.status === "OUT_FOR_DELIVERY"
-                        ? "bg-neon-blue/20 text-neon-blue"
-                        : "bg-neon-purple/20 text-neon-purple"
-                    }`}
-                  >
-                    {statusLabel(o.status)}
-                  </span>
-                </div>
 
-                <div className="flex items-start gap-2 text-sm text-slate-300">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-blue" />
-                  <span className="line-clamp-2">{line ?? "No address on file"}</span>
-                </div>
-
-                {o.eta && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                    <Package className="h-3.5 w-3.5" /> ETA {o.eta}
+                  <div className="flex items-start gap-2 text-sm text-slate-300">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-blue" />
+                    <span className="line-clamp-2">{line ?? "No address on file"}</span>
                   </div>
-                )}
-              </Link>
+
+                  {o.eta && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <Package className="h-3.5 w-3.5" /> ETA {o.eta}
+                    </div>
+                  )}
+                </Link>
+                <DeliveryStatusActions orderId={o.id} currentStatus={o.status} compact />
+              </div>
             );
           })}
         </div>

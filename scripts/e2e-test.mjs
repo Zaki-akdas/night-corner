@@ -610,6 +610,67 @@ async function main() {
       "Google Maps embed with address pin rendered"
     );
     assert(detailHtml.includes("Navigate in Google Maps"), "directions link rendered");
+
+    // 5d. Delivery status actions: staff marks OUT_FOR_DELIVERY then DELIVERED.
+    log("delivery status actions: OUT_FOR_DELIVERY → DELIVERED…");
+
+    // Customers cannot use the delivery status API (gate check).
+    const staffGate = await request(`/api/delivery/orders/${orderId}/status`, {
+      method: "PATCH",
+      jar,
+      body: JSON.stringify({ status: "DELIVERED" }),
+    });
+    assert(staffGate.status === 307 || staffGate.status === 302, "customer sessions blocked from delivery status API");
+
+    const ofdRes = await request(`/api/delivery/orders/${orderId}/status`, {
+      method: "PATCH",
+      jar: staffJar,
+      body: JSON.stringify({ status: "OUT_FOR_DELIVERY" }),
+    });
+    assert(ofdRes.status === 200, "staff marks order OUT_FOR_DELIVERY");
+
+    const ofdOrder = await prisma.order.findUnique({ where: { id: orderId } });
+    assert(ofdOrder.status === "OUT_FOR_DELIVERY", `order status persisted (${ofdOrder.status})`);
+
+    const ofdNotif = await prisma.notification.findFirst({
+      where: { userId, type: "ORDER", body: { contains: "Out for Delivery" } },
+      orderBy: { createdAt: "desc" },
+    });
+    assert(!!ofdNotif, "customer notified of out-for-delivery");
+
+    const ofdActivity = await prisma.activityLog.findFirst({
+      where: { action: "ORDER_STATUS_CHANGED", entityId: orderId, meta: { contains: "OUT_FOR_DELIVERY" } },
+      orderBy: { createdAt: "desc" },
+    });
+    assert(!!ofdActivity, "delivery status change logged (OUT_FOR_DELIVERY)");
+
+    const invalidRes = await request(`/api/delivery/orders/${orderId}/status`, {
+      method: "PATCH",
+      jar: staffJar,
+      body: JSON.stringify({ status: "OUT_FOR_DELIVERY" }),
+    });
+    assert(invalidRes.status === 400, "re-marks OUT_FOR_DELIVERY rejected (forward-only)");
+
+    const deliveredRes = await request(`/api/delivery/orders/${orderId}/status`, {
+      method: "PATCH",
+      jar: staffJar,
+      body: JSON.stringify({ status: "DELIVERED" }),
+    });
+    assert(deliveredRes.status === 200, "staff marks order DELIVERED");
+
+    const deliveredOrder = await prisma.order.findUnique({ where: { id: orderId } });
+    assert(deliveredOrder.status === "DELIVERED", `order status persisted (${deliveredOrder.status})`);
+
+    const deliveredNotif = await prisma.notification.findFirst({
+      where: { userId, type: "ORDER", body: { contains: "Delivered" } },
+      orderBy: { createdAt: "desc" },
+    });
+    assert(!!deliveredNotif, "customer notified of delivery");
+
+    // The dashboard only lists active orders — a delivered order disappears.
+    const afterRes = await request("/delivery", { jar: staffJar });
+    const afterHtml = await afterRes.text();
+    assert(!afterHtml.includes(orderJson.orderNumber), "delivered order leaves the delivery dashboard");
   } finally {
     // 6. Cleanup.
     log("cleaning up…");

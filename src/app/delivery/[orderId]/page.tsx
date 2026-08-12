@@ -11,6 +11,7 @@ import {
   mapsEmbedUrl,
   mapsDirectionsUrl,
 } from "@/lib/address";
+import { DeliveryStatusActions } from "@/components/delivery/status-actions";
 import {
   ArrowLeft,
   Bike,
@@ -56,6 +57,9 @@ export default async function DeliveryOrderPage({
         </Link>
         <span className="chip bg-neon-purple/20 text-neon-purple">{statusLabel(order.status)}</span>
       </div>
+
+      {/* Status actions */}
+      <DeliveryStatusActions orderId={order.id} currentStatus={order.status} />
 
       {/* Header */}
       <div className="card space-y-1 p-5">
