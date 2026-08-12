@@ -86,6 +86,7 @@ export function Footer({ settings }: { settings: AppSettings }) {
       </div>
       <div className="border-t border-white/10 px-4 py-5 text-center text-xs text-slate-500">
         © {new Date().getFullYear()} NIGHT CORNER · Your Night. Your Essentials. · All rights reserved.
+        <span className="mt-1 block">Made by Zaki ✨</span>
       </div>
     </footer>
   );
