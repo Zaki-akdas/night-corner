@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/admin";
 import { formatINR } from "@/lib/settings";
 import { statusLabel } from "@/lib/orders";
 import { parseAddressSnapshot, formatAddressLine } from "@/lib/address";
-import { RefreshButton } from "@/components/delivery/refresh-button";
+import { AutoRefresh } from "@/components/delivery/auto-refresh";
 import { DeliveryStatusActions } from "@/components/delivery/status-actions";
 import { Bike, MapPin, Package } from "lucide-react";
 
@@ -37,7 +37,7 @@ export default async function DeliveryDashboardPage() {
             {orders.length} order{orders.length === 1 ? "" : "s"} waiting for delivery
           </p>
         </div>
-        <RefreshButton />
+        <AutoRefresh />
       </div>
 
       {orders.length === 0 ? (
@@ -47,7 +47,7 @@ export default async function DeliveryDashboardPage() {
           </span>
           <p className="font-semibold text-white">All caught up!</p>
           <p className="max-w-sm text-sm text-slate-400">
-            No orders need delivery right now. Pull the Refresh button when you&apos;re back.
+            New orders will appear here automatically — no need to refresh.
           </p>
         </div>
       ) : (

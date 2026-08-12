@@ -39,9 +39,14 @@ export default async function OrderDetailPage({ params }: { params: { id: string
           <h1 className="mt-1 font-display text-2xl font-extrabold text-white">{order.orderNumber}</h1>
           <p className="text-sm text-slate-400">{new Date(order.createdAt).toLocaleString("en-IN")}</p>
         </div>
-        <a href={`/api/orders/${order.id}/invoice`} target="_blank" className="btn-primary">
-          <Download className="h-4 w-4" /> Download Invoice
-        </a>
+        <div className="flex gap-2">
+          <Link href={`/track-order?order=${order.orderNumber}`} className="btn">
+            <MapPin className="h-4 w-4" /> Track Live
+          </Link>
+          <a href={`/api/orders/${order.id}/invoice`} target="_blank" className="btn-primary">
+            <Download className="h-4 w-4" /> Download Invoice
+          </a>
+        </div>
       </div>
 
       <OrderTimeline currentStatus={order.status} flow={STATUS_FLOW} />

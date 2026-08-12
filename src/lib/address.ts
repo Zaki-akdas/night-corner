@@ -55,12 +55,24 @@ export function hasCoordinates(addr: DeliveryAddress | null): boolean {
   );
 }
 
+export type MapCoords = { lat: number; lng: number };
+
 /**
  * Google Maps embed URL (no API key required) that drops a pin at the delivery
  * location. Swap for a keyed Maps Embed/JS API later if needed.
  */
 export function mapsEmbedUrl(lat: number, lng: number, zoom = 16): string {
   return `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}&z=${zoom}&output=embed`;
+}
+
+/**
+ * Keyless Google Maps embed that draws the route between two points (e.g. shop
+ * → delivery address) with a marker on each end.
+ */
+export function mapsRouteEmbedUrl(origin: MapCoords, destination: MapCoords, zoom = 14): string {
+  return `https://www.google.com/maps?saddr=${encodeURIComponent(`${origin.lat},${origin.lng}`)}&daddr=${encodeURIComponent(
+    `${destination.lat},${destination.lng}`
+  )}&z=${zoom}&output=embed`;
 }
 
 /** "Open in Google Maps" link (directions to the delivery location). */

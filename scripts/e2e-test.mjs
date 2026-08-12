@@ -601,13 +601,17 @@ async function main() {
     const deliveryHtml = await deliveryRes.text();
     assert(deliveryRes.status === 200, "delivery dashboard loads for staff (200)");
     assert(deliveryHtml.includes(orderJson.orderNumber), `order ${orderJson.orderNumber} in delivery dashboard`);
+    assert(
+      /Live/.test(deliveryHtml) && /Refresh/.test(deliveryHtml),
+      "delivery dashboard auto-refresh indicator rendered"
+    );
 
     const detailRes = await request(`/delivery/${orderId}`, { jar: staffJar });
     const detailHtml = await detailRes.text();
     assert(detailRes.status === 200, "delivery order detail loads (200)");
     assert(
-      /maps\.google\.com|output=embed/.test(detailHtml),
-      "Google Maps embed with address pin rendered"
+      /saddr=/.test(detailHtml) && /daddr=/.test(detailHtml),
+      "Google Maps route embed (shop → delivery address) rendered"
     );
     assert(detailHtml.includes("Navigate in Google Maps"), "directions link rendered");
 
@@ -671,6 +675,26 @@ async function main() {
     const afterRes = await request("/delivery", { jar: staffJar });
     const afterHtml = await afterRes.text();
     assert(!afterHtml.includes(orderJson.orderNumber), "delivered order leaves the delivery dashboard");
+
+    // 5f. Customer live tracking: public track API returns status + map data.
+    log("live tracking: track API + page…");
+
+    const trackRes = await request(`/api/orders/track?orderNumber=${orderJson.orderNumber}`);
+    const trackJson = await trackRes.json();
+    assert(trackRes.status === 200 && trackJson.status === "DELIVERED", "track API returns current status");
+    assert(
+      typeof trackJson.address?.lat === "number" && typeof trackJson.address?.lng === "number",
+      "track API returns delivery coordinates"
+    );
+    assert(
+      typeof trackJson.shop?.lat === "number" && typeof trackJson.shop?.lng === "number",
+      "track API returns shop origin"
+    );
+    assert(trackJson.distanceKm > 0, "track API returns delivery distance");
+    assert(!!trackJson.eta, "track API returns ETA");
+
+    const trackPageRes = await request(`/track-order?order=${orderJson.orderNumber}`);
+    assert(trackPageRes.status === 200, "track order page loads (200)");
   } finally {
     // 6. Cleanup.
     log("cleaning up…");

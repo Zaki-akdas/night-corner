@@ -2,13 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/admin";
-import { formatINR } from "@/lib/settings";
+import { formatINR, getSettings } from "@/lib/settings";
 import { statusLabel } from "@/lib/orders";
 import {
   parseAddressSnapshot,
   formatAddressLine,
   hasCoordinates,
   mapsEmbedUrl,
+  mapsRouteEmbedUrl,
   mapsDirectionsUrl,
 } from "@/lib/address";
 import { DeliveryStatusActions } from "@/components/delivery/status-actions";
@@ -40,11 +41,20 @@ export default async function DeliveryOrderPage({
   });
   if (!order) notFound();
 
+  const settings = await getSettings();
   const addr = parseAddressSnapshot(order.addressSnapshot);
   const addressLine = formatAddressLine(addr);
   const showMap = hasCoordinates(addr);
   const lat = showMap ? (addr!.lat as number) : 0;
   const lng = showMap ? (addr!.lng as number) : 0;
+
+  // Route from the shop to the delivery address (both ends pinned).
+  const shopCoords = { lat: settings.shopLat, lng: settings.shopLng };
+  const showRoute =
+    showMap &&
+    Number.isFinite(shopCoords.lat) &&
+    Number.isFinite(shopCoords.lng) &&
+    (shopCoords.lat !== lat || shopCoords.lng !== lng);
 
   const customerName = addr?.fullName || order.user?.name || "Customer";
   const customerMobile = addr?.mobile || order.user?.mobile || "";
@@ -110,17 +120,39 @@ export default async function DeliveryOrderPage({
             </div>
 
             {showMap ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {/* Distance badge — straight-line distance from the shop */}
+                {showRoute && order.distanceKm > 0 && (
+                  <div className="flex items-center justify-between gap-2 rounded-xl bg-neon-blue/10 px-3 py-2 text-sm ring-1 ring-neon-blue/20">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-white">
+                      <Navigation className="h-4 w-4 text-neon-blue" /> Delivery distance
+                    </span>
+                    <span className="font-bold text-neon-blue">{order.distanceKm.toFixed(1)} km</span>
+                  </div>
+                )}
+
                 <div className="overflow-hidden rounded-2xl border border-white/10">
-                  {/* Google Maps embed (keyless) — pin drops at the delivery location */}
-                  <iframe
-                    title="Delivery location map"
-                    src={mapsEmbedUrl(lat, lng)}
-                    className="h-64 w-full sm:h-80"
-                    loading="lazy"
-                    allowFullScreen
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
+                  {showRoute ? (
+                    /* Keyless Google Maps embed drawing the shop → delivery route */
+                    <iframe
+                      title="Delivery route map — shop to delivery address"
+                      src={mapsRouteEmbedUrl(shopCoords, { lat, lng })}
+                      className="h-64 w-full sm:h-80"
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  ) : (
+                    /* Fallback: single pin at the delivery location */
+                    <iframe
+                      title="Delivery location map"
+                      src={mapsEmbedUrl(lat, lng)}
+                      className="h-64 w-full sm:h-80"
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  )}
                 </div>
                 <a
                   href={mapsDirectionsUrl(lat, lng)}
