@@ -7,12 +7,19 @@
  * (order + items, inventory transactions, stock deduction, customer
  * notification, admin activity log) and that overselling is rejected.
  *
- * Isolation: everything runs against an isolated `test_e2e` Postgres
- * schema on the same Supabase project (derived from .env DIRECT_URL),
- * so production data is never touched. The schema is created from the
- * Prisma schema, seeded, and dropped when the test finishes.
+ * Two modes:
+ *   local  (default)          Boots the app on :3100 against an isolated
+ *                             `test_e2e` Postgres schema and drops it after.
+ *   remote (E2E_BASE_URL set) Runs against an existing deployment (e.g. a
+ *                             Vercel preview build) that already points at a
+ *                             test schema via its own DATABASE_URL. Uses
+ *                             E2E_TEST_DB_URL (GitHub secret) for seeding and
+ *                             verification; cleans up only test data so the
+ *                             schema stays available for the next build.
  *
- * Usage: npm run test:e2e
+ * Usage:
+ *   npm run test:e2e                                   # local mode
+ *   E2E_BASE_URL=https://preview.vercel.app npm run test:e2e   # remote mode
  */
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, copyFileSync, rmSync, existsSync } from "node:fs";
@@ -26,7 +33,9 @@ const { PrismaClient } = require("@prisma/client");
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 3100;
 const SCHEMA = "test_e2e";
-const BASE = `http://localhost:${PORT}`;
+const REMOTE = (process.env.E2E_BASE_URL || "").replace(/\/+$/, "");
+const REMOTE_MODE = REMOTE !== "";
+const BASE = REMOTE || `http://localhost:${PORT}`;
 
 // The test dev server must never share .next with a running dev server — two
 // Next processes on one build dir corrupt each other's webpack cache. We point
@@ -187,28 +196,65 @@ function restoreConfig() {
   rmSync(path.join(ROOT, TEST_DIST), { recursive: true, force: true });
 }
 
+// Remote-mode cleanup: remove exactly what this run created so the schema stays
+// empty but alive for the next preview build (a dropped schema would break the
+// next deployment's build-time sitemap query).
+async function cleanupRemoteData(prisma, userId, orderId) {
+  if (orderId) {
+    const order = await prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+    if (order) {
+      for (const it of order.items) {
+        await prisma.product.update({
+          where: { id: it.productId },
+          data: { stock: { increment: it.quantity }, sold: { decrement: it.quantity } },
+        });
+      }
+      await prisma.inventoryTx.deleteMany({ where: { orderId } });
+      await prisma.order.delete({ where: { id: orderId } });
+      ok(`removed test order ${order.orderNumber} (stock restored)`);
+    }
+  }
+  if (userId) {
+    await prisma.user.delete({ where: { id: userId } }).catch(() => {});
+    ok("removed test user");
+  }
+  await prisma.product.deleteMany({ where: { sku: { startsWith: "TEST-" } } });
+  await prisma.category.deleteMany({ where: { slug: "test-category" } });
+  ok("removed seeded test data (schema kept for preview builds)");
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const dotEnv = loadDotEnv(path.join(ROOT, ".env"));
-  if (!dotEnv.DIRECT_URL) throw new Error(".env is missing DIRECT_URL");
-  const TEST_URL = `${dotEnv.DIRECT_URL}${dotEnv.DIRECT_URL.includes("?") ? "&" : "?"}schema=${SCHEMA}`;
+  const dotEnv = existsSync(path.join(ROOT, ".env")) ? loadDotEnv(path.join(ROOT, ".env")) : {};
+  const TEST_URL =
+    process.env.E2E_TEST_DB_URL ||
+    (dotEnv.DIRECT_URL
+      ? `${dotEnv.DIRECT_URL}${dotEnv.DIRECT_URL.includes("?") ? "&" : "?"}schema=${SCHEMA}`
+      : "");
+  if (!TEST_URL) throw new Error("no test database: set E2E_TEST_DB_URL or DIRECT_URL in .env");
 
+  log(REMOTE_MODE ? `remote mode → ${BASE}` : `local mode → ${BASE}`);
   log(`test database: ${TEST_URL.replace(/:[^:@/]+@/, ":***@")}`);
-  log(`schema: ${SCHEMA} (isolated — production data untouched)`);
 
-  // 0. Refuse to run if the test port is already serving something.
-  try {
-    const probe = await fetch(BASE, { signal: AbortSignal.timeout(3_000) });
-    if (probe.ok) throw new Error(`port ${PORT} is already serving a web app — kill it first`);
-  } catch (e) {
-    if (e.message && e.message.includes("already serving")) throw e;
+  let userId;
+  let orderId;
+
+  if (!REMOTE_MODE) {
+    // Refuse to run if the test port is already serving something.
+    try {
+      const probe = await fetch(BASE, { signal: AbortSignal.timeout(3_000) });
+      if (probe.ok) throw new Error(`port ${PORT} is already serving a web app — kill it first`);
+    } catch (e) {
+      if (e.message && e.message.includes("already serving")) throw e;
+    }
   }
 
-  // 1. Create schema + tables from the Prisma schema.
-  log("creating schema & tables (prisma db push)…");
+  // 1. Ensure schema + tables exist (idempotent; in remote mode the schema is
+  // pre-created so preview builds pass — this only syncs tables).
+  log("syncing schema & tables (prisma db push)…");
   const push = spawnSync("npx prisma db push --skip-generate --accept-data-loss", {
     cwd: ROOT,
     shell: true,
@@ -218,17 +264,30 @@ async function main() {
   });
   if (push.status !== 0) throw new Error("prisma db push failed");
 
-  // 2. Seed minimal data (category, 2 products, open-shop settings).
+  // 2. Seed minimal data (category, 2 products, open-shop settings) — upserts
+  // so repeated runs are safe.
   log("seeding test data…");
   process.env.DATABASE_URL = TEST_URL;
   process.env.DIRECT_URL = TEST_URL;
   const prisma = new PrismaClient();
 
-  const category = await prisma.category.create({
-    data: { name: "Test Category", slug: "test-category" },
+  const category = await prisma.category.upsert({
+    where: { slug: "test-category" },
+    update: { name: "Test Category" },
+    create: { name: "Test Category", slug: "test-category" },
   });
-  const chips = await prisma.product.create({
-    data: {
+  const chips = await prisma.product.upsert({
+    where: { sku: "TEST-CHIPS-001" },
+    update: {
+      name: "Test Chips",
+      price: 20,
+      mrp: 20,
+      stock: 5,
+      sold: 0,
+      active: true,
+      categoryId: category.id,
+    },
+    create: {
       name: "Test Chips",
       slug: "test-chips",
       description: "Integration test product",
@@ -241,8 +300,18 @@ async function main() {
       unit: "80 g",
     },
   });
-  const drink = await prisma.product.create({
-    data: {
+  const drink = await prisma.product.upsert({
+    where: { sku: "TEST-DRINK-001" },
+    update: {
+      name: "Test Drink",
+      price: 30,
+      mrp: 30,
+      stock: 4,
+      sold: 0,
+      active: true,
+      categoryId: category.id,
+    },
+    create: {
       name: "Test Drink",
       slug: "test-drink",
       description: "Integration test product",
@@ -255,45 +324,45 @@ async function main() {
       unit: "500 ml",
     },
   });
-  await prisma.settings.create({ data: { key: "app_settings", value: JSON.stringify(TEST_SETTINGS) } });
+  await prisma.settings.upsert({
+    where: { key: "app_settings" },
+    update: { value: JSON.stringify(TEST_SETTINGS) },
+    create: { key: "app_settings", value: JSON.stringify(TEST_SETTINGS) },
+  });
   ok(`seeded category + ${chips.name} (₹${chips.price}) + ${drink.name} (₹${drink.price})`);
 
-  // 3. Start the app against the test schema on a dedicated port and an
-  // isolated build directory.
-  installIsolatedDistDir();
-  log(`starting dev server on :${PORT} (build dir ${TEST_DIST})…`);
-  const server = spawn(
-    "node",
-    ["node_modules/next/dist/bin/next", "dev", "-p", String(PORT)],
-    {
+  // 3. Local mode: start the app against the test schema on a dedicated port
+  // and an isolated build directory. Remote mode: target is already running.
+  let server = null;
+  let serverExited = true;
+  if (!REMOTE_MODE) {
+    installIsolatedDistDir();
+    log(`starting dev server on :${PORT} (build dir ${TEST_DIST})…`);
+    server = spawn("node", ["node_modules/next/dist/bin/next", "dev", "-p", String(PORT)], {
       cwd: ROOT,
-      env: {
-        ...process.env,
-        DATABASE_URL: TEST_URL,
-        DIRECT_URL: TEST_URL,
-        NEXTAUTH_URL: BASE,
-      },
+      env: { ...process.env, DATABASE_URL: TEST_URL, DIRECT_URL: TEST_URL, NEXTAUTH_URL: BASE },
       stdio: "ignore",
-    }
-  );
-  let serverExited = false;
-  server.on("exit", () => {
-    serverExited = true;
-  });
-
-  process.on("exit", restoreConfig);
-  process.on("SIGINT", () => {
-    restoreConfig();
-    process.exit(130);
-  });
-  process.on("SIGTERM", () => {
-    restoreConfig();
-    process.exit(143);
-  });
+    });
+    serverExited = false;
+    server.on("exit", () => {
+      serverExited = true;
+    });
+    process.on("exit", restoreConfig);
+    process.on("SIGINT", () => {
+      restoreConfig();
+      process.exit(130);
+    });
+    process.on("SIGTERM", () => {
+      restoreConfig();
+      process.exit(143);
+    });
+  }
 
   try {
-    if (!(await waitForServer(180_000))) throw new Error("dev server did not become ready");
-    ok("dev server ready");
+    if (!(await waitForServer(REMOTE_MODE ? 300_000 : 180_000))) {
+      throw new Error(REMOTE_MODE ? `app did not become ready at ${BASE}` : "dev server did not become ready");
+    }
+    ok(REMOTE_MODE ? `app ready at ${BASE}` : "dev server ready");
 
     // 4. The flow — every step hits a real HTTP endpoint of the running app.
     log("running signup → login → address → order flow…");
@@ -307,7 +376,7 @@ async function main() {
     });
     const signupJson = await signupRes.json();
     assert(signupRes.status === 200 && signupJson.id, "signup creates a user");
-    const userId = signupJson.id;
+    userId = signupJson.id;
 
     const jar = new CookieJar();
     const csrfRes = await request("/api/auth/csrf", { jar });
@@ -357,7 +426,7 @@ async function main() {
     });
     const orderJson = await orderRes.json();
     assert(orderRes.status === 200 && orderJson.orderId, `COD order placed (${orderJson.orderNumber})`);
-    const orderId = orderJson.orderId;
+    orderId = orderJson.orderId;
 
     const overRes = await request("/api/orders", {
       method: "POST",
@@ -409,21 +478,27 @@ async function main() {
     const activity = await prisma.activityLog.findFirst({ where: { userId, action: "ORDER_PLACED" }, orderBy: { createdAt: "desc" } });
     assert(!!activity, "admin activity log persisted (regression: fire-and-forget race)");
   } finally {
-    // 6. Cleanup — kill the server, drop the entire test schema, restore config.
+    // 6. Cleanup.
     log("cleaning up…");
-    if (!serverExited) {
+    if (server && !serverExited) {
       server.kill();
       await new Promise((r) => setTimeout(r, 1_500));
     }
-    try {
-      await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
-      ok(`dropped schema ${SCHEMA}`);
-    } catch (e) {
-      fail(`could not drop schema: ${e.message}`);
+    if (REMOTE_MODE) {
+      await cleanupRemoteData(prisma, userId, orderId);
+    } else {
+      try {
+        await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
+        ok(`dropped schema ${SCHEMA}`);
+      } catch (e) {
+        fail(`could not drop schema: ${e.message}`);
+      }
     }
     await prisma.$disconnect().catch(() => {});
-    restoreConfig();
-    process.off("exit", restoreConfig);
+    if (!REMOTE_MODE) {
+      restoreConfig();
+      process.off("exit", restoreConfig);
+    }
   }
 }
 
@@ -433,7 +508,7 @@ main()
       console.error(`\n\x1b[31mE2E FAILED — ${failures} assertion(s) failed\x1b[0m`);
       process.exit(1);
     }
-    console.log("\n\x1b[32mE2E PASSED — signup → login → address → COD order → persistence ✅\x1b[0m");
+    console.log(`\n\x1b[32mE2E PASSED — signup → login → address → COD order → persistence ✅ (${REMOTE_MODE ? BASE : "local"})\x1b[0m`);
     process.exit(0);
   })
   .catch((e) => {
