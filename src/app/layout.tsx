@@ -14,7 +14,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const sora = Sora({ subsets: ["latin"], variable: "--font-display", weight: ["400", "600", "700", "800"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://nightcorner.in"),
+  metadataBase: new URL("https://night-corner.vercel.app"),
   title: {
     default: "NIGHT CORNER — Your Night. Your Essentials.",
     template: "%s · NIGHT CORNER",
