@@ -7,7 +7,7 @@ import { formatINR } from "@/lib/settings";
 import { STATUS_FLOW } from "@/lib/types";
 import { statusLabel } from "@/lib/orders";
 import { OrderTimeline } from "@/components/account/order-timeline";
-import { Download, MapPin } from "lucide-react";
+import { Download, KeyRound, MapPin, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +50,36 @@ export default async function OrderDetailPage({ params }: { params: { id: string
       </div>
 
       <OrderTimeline currentStatus={order.status} flow={STATUS_FLOW} />
+
+      {/* Proof-of-delivery PIN — the delivery person asks for this at handover */}
+      {order.deliveryPin && ["OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status) && (
+        <div className="card flex flex-wrap items-center justify-between gap-3 p-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
+              {order.status === "DELIVERED" ? (
+                <ShieldCheck className="h-5 w-5 text-emerald-400" />
+              ) : (
+                <KeyRound className="h-5 w-5 text-emerald-400" />
+              )}
+            </span>
+            <div>
+              <div className="font-semibold text-white">
+                {order.status === "DELIVERED" ? "Delivery verified ✓" : "Your delivery PIN"}
+              </div>
+              <p className="text-xs text-slate-400">
+                {order.status === "DELIVERED"
+                  ? "This order was confirmed with this PIN."
+                  : "Share this PIN with your delivery person to confirm handover."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2 ring-1 ring-emerald-500/30">
+            <span className="font-display text-2xl font-extrabold tracking-[0.3em] text-emerald-300">
+              {order.deliveryPin}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="card p-5">

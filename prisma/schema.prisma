@@ -212,6 +212,8 @@ model Order {
   eta             String?
   notes           String?
   invoicePdf      String?
+  deliveryPin     String? // 4-digit PIN the customer shares with staff as proof-of-delivery
+  deliveryPhotoUrl String? // uploaded photo evidence taken at handover
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   @@index([status])

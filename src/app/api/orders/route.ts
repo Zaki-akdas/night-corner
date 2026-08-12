@@ -104,6 +104,8 @@ export async function POST(req: Request) {
           couponCode: pricing.couponCode,
           status: "PLACED",
           eta: `${settings.deliveryTimeMins} mins`,
+          // 4-digit proof-of-delivery PIN the customer shares with the delivery person.
+          deliveryPin: String(Math.floor(1000 + Math.random() * 9000)),
           items: {
             create: pricing.lines.map((l) => {
               const p = productMap.get(l.productId)!;

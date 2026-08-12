@@ -257,6 +257,7 @@ async function main() {
 
   let userId;
   let orderId;
+  let uploadedPhotoUrl = null;
 
   if (!REMOTE_MODE) {
     // Refuse to run if the test port is already serving something.
@@ -657,21 +658,70 @@ async function main() {
     });
     assert(invalidRes.status === 400, "re-marks OUT_FOR_DELIVERY rejected (forward-only)");
 
-    const deliveredRes = await request(`/api/delivery/orders/${orderId}/status`, {
+    // Proof of delivery: a photo + the customer's PIN are required first.
+    const ofdRecord = await prisma.order.findUnique({ where: { id: orderId } });
+    assert(/^\d{4}$/.test(ofdRecord.deliveryPin || ""), "order has a 4-digit delivery PIN");
+
+    const noPodRes = await request(`/api/delivery/orders/${orderId}/status`, {
       method: "PATCH",
       jar: staffJar,
       body: JSON.stringify({ status: "DELIVERED" }),
     });
-    assert(deliveredRes.status === 200, "staff marks order DELIVERED");
+    assert(noPodRes.status === 400, "DELIVERED rejected without photo and PIN");
+
+    const wrongPinRes = await request(`/api/delivery/orders/${orderId}/status`, {
+      method: "PATCH",
+      jar: staffJar,
+      body: JSON.stringify({
+        status: "DELIVERED",
+        deliveryPhotoUrl: "https://example.com/proof.jpg",
+        deliveryPin: "0000",
+      }),
+    });
+    assert(wrongPinRes.status === 400, "wrong delivery PIN rejected");
+
+    // Staff uploads a tiny proof photo, then delivers with the correct PIN.
+    const tinyPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64"
+    );
+    const photoForm = new FormData();
+    photoForm.append("file", new Blob([tinyPng], { type: "image/png" }), "proof.png");
+    const photoRes = await request(`/api/delivery/orders/${orderId}/photo`, {
+      method: "POST",
+      jar: staffJar,
+      body: photoForm,
+    });
+    assert(photoRes.status === 200, "staff uploads delivery photo");
+    const photoJson = await photoRes.json();
+    assert(photoJson.url && photoJson.url.includes("delivery-proofs"), "photo upload returns a public storage URL");
+    uploadedPhotoUrl = photoJson.url;
+
+    const deliveredRes = await request(`/api/delivery/orders/${orderId}/status`, {
+      method: "PATCH",
+      jar: staffJar,
+      body: JSON.stringify({
+        status: "DELIVERED",
+        deliveryPhotoUrl: photoJson.url,
+        deliveryPin: ofdRecord.deliveryPin,
+      }),
+    });
+    assert(deliveredRes.status === 200, "staff marks order DELIVERED with photo + PIN");
 
     const deliveredOrder = await prisma.order.findUnique({ where: { id: orderId } });
     assert(deliveredOrder.status === "DELIVERED", `order status persisted (${deliveredOrder.status})`);
+    assert(deliveredOrder.deliveryPhotoUrl === photoJson.url, "delivery photo URL persisted on the order");
 
     const deliveredNotif = await prisma.notification.findFirst({
       where: { userId, type: "ORDER", body: { contains: "Delivered" } },
       orderBy: { createdAt: "desc" },
     });
     assert(!!deliveredNotif, "customer notified of delivery");
+
+    // The customer's order page shows their delivery PIN.
+    const custOrderRes = await request(`/account/orders/${orderId}`, { jar });
+    const custOrderHtml = await custOrderRes.text();
+    assert(custOrderHtml.includes(ofdRecord.deliveryPin), "customer order page shows the delivery PIN");
 
     // The dashboard only lists active orders — a delivered order disappears.
     const afterRes = await request("/delivery", { jar: staffJar });
@@ -703,6 +753,31 @@ async function main() {
     if (server && !serverExited) {
       server.kill();
       await new Promise((r) => setTimeout(r, 1_500));
+    }
+    // Remove any photo uploaded to Supabase Storage during the run.
+    if (uploadedPhotoUrl && dotEnv.SUPABASE_URL) {
+      try {
+        const base = String(dotEnv.SUPABASE_URL).replace(/\/$/, "");
+        const prefix = `${base}/storage/v1/object/public/delivery-proofs/`;
+        if (uploadedPhotoUrl.startsWith(prefix)) {
+          const path = uploadedPhotoUrl.slice(prefix.length);
+          const key = dotEnv.SUPABASE_PUBLISHABLE_KEY || dotEnv.SUPABASE_ANON_KEY;
+          const headers = key ? { apikey: key, Authorization: `Bearer ${key}` } : {};
+          const del = await fetch(`${base}/storage/v1/object/delivery-proofs/${path}`, {
+            method: "DELETE",
+            headers,
+          });
+          // Anon may be denied delete — fall back to removing the metadata row.
+          if (del.ok) ok("removed uploaded test photo from storage");
+          else
+            await prisma
+              .$executeRawUnsafe(`DELETE FROM storage.objects WHERE bucket_id = 'delivery-proofs' AND name = '${path}'`)
+              .then(() => ok("removed uploaded test photo metadata from storage"))
+              .catch(() => {});
+        }
+      } catch {
+        /* non-critical */
+      }
     }
     if (REMOTE_MODE) {
       await cleanupRemoteData(prisma, userId, orderId);

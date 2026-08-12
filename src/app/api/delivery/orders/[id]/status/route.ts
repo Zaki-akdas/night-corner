@@ -14,7 +14,11 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   DELIVERED: ["PLACED", "CONFIRMED", "PREPARING", "PACKED", "OUT_FOR_DELIVERY"],
 };
 
-const schema = z.object({ status: z.enum(["OUT_FOR_DELIVERY", "DELIVERED"]) });
+const schema = z.object({
+  status: z.enum(["OUT_FOR_DELIVERY", "DELIVERED"]),
+  deliveryPhotoUrl: z.string().url().optional(),
+  deliveryPin: z.string().optional(),
+});
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const staff = await requireRole("STAFF", "ADMIN");
@@ -37,7 +41,27 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     );
   }
 
-  await prisma.order.update({ where: { id: order.id }, data: { status: newStatus } });
+  // Proof of delivery: a photo and the customer's 4-digit PIN are required
+  // before an order can be marked Delivered.
+  if (newStatus === "DELIVERED") {
+    if (!parsed.data.deliveryPhotoUrl || !parsed.data.deliveryPin) {
+      return NextResponse.json(
+        { error: "Delivery photo and customer PIN are required" },
+        { status: 400 }
+      );
+    }
+    if (!order.deliveryPin || parsed.data.deliveryPin.trim() !== order.deliveryPin) {
+      return NextResponse.json({ error: "Incorrect delivery PIN — ask the customer" }, { status: 400 });
+    }
+  }
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      status: newStatus,
+      ...(newStatus === "DELIVERED" ? { deliveryPhotoUrl: parsed.data.deliveryPhotoUrl } : {}),
+    },
+  });
 
   // Notify the customer (awaited — serverless may freeze after the response).
   try {

@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bike, CheckCircle2, Loader2 } from "lucide-react";
+import { Bike, CheckCircle2, ChevronDown, ImagePlus, KeyRound, Loader2, X } from "lucide-react";
 
 const PRE_DELIVERY = ["PLACED", "CONFIRMED", "PREPARING", "PACKED"];
 
 /**
- * Delivery status buttons. Renders nothing when the order isn't actionable
- * (already delivered, cancelled, refunded, or out for delivery with no further
- * step). Used on both the dashboard cards and the order detail page.
+ * Delivery status buttons. Renders nothing when the order isn't actionable.
+ * Marking an order Delivered requires proof of delivery: a photo upload and the
+ * 4-digit PIN the customer gives at handover. The compact variant (dashboard
+ * cards) keeps the proof-of-delivery form collapsed behind a toggle.
  */
 export function DeliveryStatusActions({
   orderId,
@@ -23,6 +24,11 @@ export function DeliveryStatusActions({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [showPod, setShowPod] = useState(!compact);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [pin, setPin] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const canSendOut = PRE_DELIVERY.includes(currentStatus);
   const canDeliver = currentStatus === "OUT_FOR_DELIVERY";
@@ -32,10 +38,40 @@ export function DeliveryStatusActions({
     setBusy(status);
     setError("");
     try {
+      // Proof of delivery: upload the photo first, then deliver with the URL + PIN.
+      let photoUrl = "";
+      if (status === "DELIVERED") {
+        if (!photo) {
+          setError("Please attach a delivery photo");
+          return;
+        }
+        if (pin.trim().length !== 4 || !/^\d{4}$/.test(pin.trim())) {
+          setError("Enter the 4-digit PIN from the customer");
+          return;
+        }
+        const form = new FormData();
+        form.append("file", photo);
+        const upRes = await fetch(`/api/delivery/orders/${orderId}/photo`, {
+          method: "POST",
+          body: form,
+        });
+        if (!upRes.ok) {
+          const j = await upRes.json().catch(() => ({}));
+          setError(j.error || "Photo upload failed");
+          return;
+        }
+        const upJson = await upRes.json();
+        photoUrl = upJson.url;
+      }
+
       const res = await fetch(`/api/delivery/orders/${orderId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(
+          status === "DELIVERED"
+            ? { status, deliveryPhotoUrl: photoUrl, deliveryPin: pin.trim() }
+            : { status }
+        ),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -47,6 +83,17 @@ export function DeliveryStatusActions({
       setError("Network error — try again");
     } finally {
       setBusy(null);
+    }
+  };
+
+  const onPickPhoto = (f: File | null) => {
+    setPhoto(f);
+    if (f) {
+      const reader = new FileReader();
+      reader.onload = () => setPhotoPreview(String(reader.result));
+      reader.readAsDataURL(f);
+    } else {
+      setPhotoPreview("");
     }
   };
 
@@ -65,16 +112,90 @@ export function DeliveryStatusActions({
           {busy === "OUT_FOR_DELIVERY" ? "Updating…" : "Mark Out for Delivery"}
         </button>
       )}
+
       {canDeliver && (
-        <button
-          onClick={() => update("DELIVERED")}
-          disabled={!!busy}
-          className={btn("bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60")}
-        >
-          {busy === "DELIVERED" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-          {busy === "DELIVERED" ? "Updating…" : "Mark Delivered"}
-        </button>
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowPod((s) => !s)}
+            className={`${btn("btn")} ${showPod ? "ring-2 ring-emerald-500/50" : ""}`}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Mark Delivered
+            <ChevronDown className={`h-4 w-4 transition-transform ${showPod ? "rotate-180" : ""}`} />
+          </button>
+
+          {showPod && (
+            <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <p className="text-xs text-slate-300">
+                Collect proof before confirming: a <span className="font-semibold text-white">delivery photo</span> and
+                the customer&apos;s <span className="font-semibold text-white">4-digit PIN</span>.
+              </p>
+
+              {/* Photo */}
+              {photoPreview ? (
+                <div className="relative overflow-hidden rounded-lg border border-white/10">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photoPreview} alt="Delivery photo preview" className="max-h-40 w-full object-cover" />
+                  <button
+                    onClick={() => {
+                      onPickPhoto(null);
+                      if (fileRef.current) fileRef.current.value = "";
+                    }}
+                    className="absolute right-2 top-2 rounded-full bg-night-950/80 p-1 text-white hover:bg-night-950"
+                    aria-label="Remove photo"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="flex w-full flex-col items-center gap-1 rounded-lg border border-dashed border-white/20 bg-night-950/40 px-3 py-4 text-xs text-slate-300 hover:border-emerald-400/40 hover:text-white"
+                >
+                  <ImagePlus className="h-5 w-5" />
+                  Tap to attach a photo of the delivery
+                </button>
+              )}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                className="hidden"
+                onChange={(e) => onPickPhoto(e.target.files?.[0] ?? null)}
+              />
+
+              {/* PIN */}
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                <input
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  inputMode="numeric"
+                  pattern="[0-9]{4}"
+                  maxLength={4}
+                  placeholder="Customer PIN (4 digits)"
+                  className="input py-2 pl-8 text-sm tracking-[0.3em]"
+                />
+              </div>
+
+              <button
+                onClick={() => update("DELIVERED")}
+                disabled={!!busy}
+                className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
+              >
+                {busy === "DELIVERED" ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading & confirming…
+                  </span>
+                ) : (
+                  "Confirm Delivery"
+                )}
+              </button>
+            </div>
+          )}
+        </div>
       )}
+
       {error && <p className="text-xs text-rose-300">{error}</p>}
     </div>
   );

@@ -147,6 +147,30 @@ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD / SEED_ADMIN_NAME
 
 ---
 
+## 📸 Proof of delivery (photo + PIN)
+
+Every order gets a **4-digit delivery PIN** at checkout, shown to the customer on
+`/account/orders/{id}`. Before a delivery person can mark an order **Delivered**
+they must collect and submit:
+
+1. **A delivery photo** — uploaded to Supabase Storage (public `delivery-proofs`
+   bucket) via `/api/delivery/orders/{id}/photo`, then attached to the order.
+2. **The customer's PIN** — validated server-side against the order's PIN.
+
+Rejections: missing photo/PIN → `400`, wrong PIN → `400` "Incorrect delivery
+PIN". The photo and PIN are recorded on the order permanently as evidence.
+
+Storage env vars (server-side only):
+```
+SUPABASE_URL
+SUPABASE_PUBLISHABLE_KEY   # used for uploads via the apikey header
+```
+The `delivery-proofs` bucket is created via SQL (anon keys can't create
+buckets): a public bucket plus INSERT/DELETE RLS policies scoped to it. Photos
+are intentionally immutable — the app never deletes them.
+
+---
+
 ## 🛵 Customer delivery notifications
 
 When a delivery person marks an order **Out for Delivery**, the customer is
