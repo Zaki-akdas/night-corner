@@ -135,12 +135,34 @@ NEXT_PUBLIC_PAYMENT_GATEWAY_KEY, PAYMENT_GATEWAY_SECRET
 WHATSAPP_API_TOKEN, WHATSAPP_BUSINESS_NUMBER_ID
 NEXT_PUBLIC_WHATSAPP_NUMBER="919999999999"
 
+# SMS (Fast2SMS — used for customer delivery alerts when notifySms is on)
+FAST2SMS_API_KEY
+
 ADMIN_EMAIL="admin@nightcorner.in"
 SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD / SEED_ADMIN_NAME
 ```
 
 > No secrets are exposed to the browser. Payment gateway keys, DB URL, WhatsApp
 > token and service-role keys stay server-side only.
+
+---
+
+## 🛵 Customer delivery notifications
+
+When a delivery person marks an order **Out for Delivery**, the customer is
+notified on the phone number saved with their delivery address:
+
+- **WhatsApp** (if `notifyWhatsapp` is enabled in Admin → Settings) — sent via the
+  WhatsApp Business Cloud API when `WHATSAPP_API_TOKEN` + `WHATSAPP_BUSINESS_NUMBER_ID`
+  are set; otherwise it degrades to a demo no-op (a `wa.me` deep link) so the flow
+  never breaks.
+- **SMS** (if `notifySms` is enabled) — sent via Fast2SMS when `FAST2SMS_API_KEY`
+  is set; without a key it's a demo no-op.
+
+The message includes the order number, the ETA, and a live tracking link
+(`/track-order`). Both channels are non-blocking — external delivery failures
+never affect the status update. The in-app notification and admin activity log
+are unaffected.
 
 ---
 

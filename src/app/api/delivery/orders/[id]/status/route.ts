@@ -3,6 +3,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, logActivity, notifyAdmin } from "@/lib/admin";
 import { statusLabel } from "@/lib/orders";
+import { getSettings } from "@/lib/settings";
+import { sendWhatsappMessage } from "@/lib/whatsapp";
+import { sendSmsMessage } from "@/lib/sms";
+import { parseAddressSnapshot } from "@/lib/address";
 
 // Delivery staff may only move orders forward through the final two steps.
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
@@ -47,6 +51,32 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     });
   } catch {
     // non-critical
+  }
+
+  if (newStatus === "OUT_FOR_DELIVERY") {
+    // Tell the customer their order is on the way — via SMS and/or WhatsApp,
+    // whichever the store has enabled. Non-blocking: external I/O must never
+    // fail the status update.
+    const settings = await getSettings().catch(() => null);
+    const addr = parseAddressSnapshot(order.addressSnapshot);
+    const mobile = addr?.mobile;
+    if (mobile && settings) {
+      const trackUrl = `${new URL(req.url).origin}/track-order?order=${order.orderNumber}`;
+      const msg = [
+        `🌙 Your Night Corner order ${order.orderNumber} is out for delivery!`,
+        order.eta ? `Estimated arrival: ${order.eta}.` : "",
+        `Track live: ${trackUrl}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const sends = [];
+      if (settings.notifyWhatsapp) sends.push(sendWhatsappMessage(mobile, msg));
+      if (settings.notifySms) sends.push(sendSmsMessage(mobile, msg));
+      if (sends.length) {
+        // Both senders catch their own errors; never let this affect the response.
+        Promise.all(sends).catch(() => {});
+      }
+    }
   }
 
   if (newStatus === "DELIVERED") {

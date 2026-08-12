@@ -166,8 +166,10 @@ const TEST_SETTINGS = {
   onlineEnabled: false,
   upiId: "nightcorner@upi",
   notifyEmail: false,
-  notifyWhatsapp: false,
-  notifySms: false,
+  // Enabled so the OFD step exercises the external SMS/WhatsApp code path.
+  // Without provider credentials both senders run in demo mode (no-op ok).
+  notifyWhatsapp: true,
+  notifySms: true,
 };
 
 let failures = 0;
