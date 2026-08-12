@@ -1,6 +1,6 @@
 // Minimal offline shell for Night Corner PWA
 const CACHE = "night-corner-v1";
-const SHELL = ["/", "/shop", "/offline", "/logo.svg", "/logo-icon.svg", "/favicon.svg"];
+const SHELL = ["/", "/shop", "/offline", "/logo.svg", "/logo-icon.svg", "/favicon.svg", "/logo.png", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));

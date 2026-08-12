@@ -121,6 +121,32 @@ fs.writeFileSync(path.join(PUB, "logo.svg"), logoSvg());
 fs.writeFileSync(path.join(PUB, "logo-icon.svg"), logoSvg({ icon: true }));
 fs.writeFileSync(path.join(PUB, "favicon.svg"), logoSvg({ icon: true }));
 
+// ---------------- PNG RASTERS (via @resvg/resvg-js) ----------------
+// Renders crisp PNG versions of the logo for the places SVG doesn't cut it
+// (apple-touch-icon) and a lightweight logo.png for general use. resvg bundles
+// font loading so <text> renders even without system fontconfig (Windows).
+let Resvg = null;
+try {
+  ({ Resvg } = await import("@resvg/resvg-js"));
+} catch {
+  console.log("@resvg/resvg-js not installed — skipping PNG rasterization (npm i -D @resvg/resvg-js)");
+}
+if (Resvg) {
+  const render = (file, out, width) => {
+    const svg = fs.readFileSync(file, "utf8");
+    const r = new Resvg(svg, {
+      fitTo: { mode: "width", value: width },
+      font: { loadSystemFonts: true, defaultFontFamily: "Arial" },
+    });
+    fs.writeFileSync(out, r.render().asPng());
+  };
+  render(path.join(PUB, "logo.svg"), path.join(PUB, "logo.png"), 840);
+  render(path.join(PUB, "logo-icon.svg"), path.join(PUB, "apple-touch-icon.png"), 180);
+  render(path.join(PUB, "logo-icon.svg"), path.join(PUB, "icon-192.png"), 192);
+  render(path.join(PUB, "logo-icon.svg"), path.join(PUB, "icon-512.png"), 512);
+  console.log("Rasterized logo.png + apple-touch-icon.png + PWA icons (192/512).");
+}
+
 // ---------------- CATEGORY ART ----------------
 const CATMETA = {
   "bakery-desserts": { from: "#fb7185", to: "#be123c", accent: "#fda4af", emoji: "🧁" },

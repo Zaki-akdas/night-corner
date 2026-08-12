@@ -24,7 +24,7 @@
         <circle cx="370" cy="360" r="12"/><circle cx="270" cy="390" r="16"/>
         <circle cx="310" cy="335" r="9"/></g>
   <g text-anchor="middle" font-family="Arial, sans-serif">
-    <text x="300" y="336" font-size="32" font-weight="bold" fill="#fff" style="letter-spacing:1px">Hide & Seek</text>
+    <text x="300" y="336" font-size="32" font-weight="bold" fill="#fff" style="letter-spacing:1px">Hide &amp; Seek</text>
     <text x="300" y="364" font-size="15" fill="#fcd34d">Chocolate chip cookies</text>
   </g>
   <text x="300" y="560" text-anchor="middle" font-family="Arial Black,Arial" font-size="13" letter-spacing="2" fill="#94a3b8" opacity="0.85">NIGHT CORNER</text>

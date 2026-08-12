@@ -23,7 +23,7 @@
       <rect x="220" y="310" width="160" height="90" rx="14" fill="#0a0c1e" opacity="0.78"/>
   <g text-anchor="middle" font-family="Arial, sans-serif">
     <text x="300" y="336" font-size="32" font-weight="bold" fill="#fff" style="letter-spacing:1px">Black Forest Pa</text>
-    <text x="300" y="364" font-size="15" fill="#fda4af">Cherry & cream black forest</text>
+    <text x="300" y="364" font-size="15" fill="#fda4af">Cherry &amp; cream black forest</text>
   </g>
   <text x="300" y="560" text-anchor="middle" font-family="Arial Black,Arial" font-size="13" letter-spacing="2" fill="#94a3b8" opacity="0.85">NIGHT CORNER</text>
 </svg>

@@ -31,14 +31,15 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/favicon.svg",
-    apple: "/logo-icon.svg",
+    // PNG (not SVG) — iOS Safari ignores SVG apple-touch-icons.
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     title: "NIGHT CORNER — Your Night. Your Essentials.",
     description:
       "Late-night snacks, bakery, chocolates, instant food and drinks delivered to your door.",
     type: "website",
-    images: ["/logo.svg"],
+    images: ["/logo.png"],
   },
   twitter: {
     card: "summary_large_image",
