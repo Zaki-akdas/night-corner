@@ -86,10 +86,11 @@ npm run dev          # http://localhost:3000
 ```
 
 ### Demo logins
-| Role     | Email                    | Password      |
-|----------|--------------------------|---------------|
-| Admin    | `admin@nightcorner.in`   | `admin123`    |
-| Customer | `rahul@example.com`      | `customer123` |
+| Role           | Email                    | Password       |
+|----------------|--------------------------|----------------|
+| Admin          | `admin@nightcorner.in`   | `admin123`     |
+| Customer       | `rahul@example.com`      | `customer123`  |
+| Delivery (staff) | `delivery@nightcorner.in` | `delivery123`  |
 
 Try coupon codes **NIGHT10** (10% off over ₹199) and **FREESHIP** (free delivery).
 

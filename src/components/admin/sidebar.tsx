@@ -105,7 +105,10 @@ function NavList({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
           </Link>
         );
       })}
-      <Link href="/" className="mt-4 block rounded-xl border border-white/10 px-3 py-2 text-center text-xs text-slate-400 hover:bg-white/5">
+      <Link href="/delivery" className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 px-3 py-2 text-center text-xs text-white ring-1 ring-neon-blue/30 hover:bg-neon-blue/20">
+        <Truck className="h-4 w-4" /> Delivery Dashboard
+      </Link>
+      <Link href="/" className="mt-2 block rounded-xl border border-white/10 px-3 py-2 text-center text-xs text-slate-400 hover:bg-white/5">
         ← Back to store
       </Link>
     </nav>

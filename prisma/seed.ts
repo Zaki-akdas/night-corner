@@ -39,6 +39,21 @@ async function main() {
     },
   });
 
+  // Demo delivery person (STAFF)
+  await prisma.user.upsert({
+    where: { email: "delivery@nightcorner.in" },
+    update: {},
+    create: {
+      email: "delivery@nightcorner.in",
+      name: "Delivery Staff",
+      mobile: "9999922222",
+      passwordHash: await bcrypt.hash("delivery123", 10),
+      role: "STAFF",
+      status: "ACTIVE",
+      emailVerified: new Date(),
+    },
+  });
+
   // Demo customer
   const customerEmail = "rahul@example.com";
   await prisma.user.upsert({

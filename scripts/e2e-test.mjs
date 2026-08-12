@@ -127,6 +127,11 @@ const ADMIN_EMAIL = "admin-e2e@nightcorner.in";
 const ADMIN_MOBILE = "9876500099";
 const ADMIN_PASSWORD = "AdminE2ETest123!";
 
+// STAFF (delivery person) credentials for the delivery dashboard flow.
+const STAFF_EMAIL = "staff-e2e@nightcorner.in";
+const STAFF_MOBILE = "9876500088";
+const STAFF_PASSWORD = "StaffE2ETest123!";
+
 const TEST_SETTINGS = {
   businessName: "NIGHT CORNER",
   slogan: "Your Night. Your Essentials.",
@@ -226,6 +231,7 @@ async function cleanupRemoteData(prisma, userId, orderId) {
     ok("removed test user");
   }
   await prisma.user.delete({ where: { email: ADMIN_EMAIL } }).catch(() => {});
+  await prisma.user.delete({ where: { email: STAFF_EMAIL } }).catch(() => {});
   await prisma.product.deleteMany({ where: { sku: { startsWith: "TEST-" } } });
   await prisma.category.deleteMany({ where: { slug: "test-category" } });
   ok("removed seeded test data (schema kept for preview builds)");
@@ -350,7 +356,20 @@ async function main() {
       status: "ACTIVE",
     },
   });
-  ok(`seeded category + ${chips.name} (₹${chips.price}) + ${drink.name} (₹${drink.price}) + admin ${ADMIN_EMAIL}`);
+  const staffHash = await bcrypt.hash(STAFF_PASSWORD, 10);
+  await prisma.user.upsert({
+    where: { email: STAFF_EMAIL },
+    update: { passwordHash: staffHash, role: "STAFF", status: "ACTIVE", name: "E2E Staff", mobile: STAFF_MOBILE },
+    create: {
+      email: STAFF_EMAIL,
+      name: "E2E Staff",
+      mobile: STAFF_MOBILE,
+      passwordHash: staffHash,
+      role: "STAFF",
+      status: "ACTIVE",
+    },
+  });
+  ok(`seeded category + ${chips.name} (₹${chips.price}) + ${drink.name} (₹${drink.price}) + admin ${ADMIN_EMAIL} + staff ${STAFF_EMAIL}`);
 
   // 3. Local mode: start the app against the test schema on a dedicated port
   // and an isolated build directory. Remote mode: target is already running.
@@ -553,6 +572,44 @@ async function main() {
       orderBy: { createdAt: "desc" },
     });
     assert(!!statusActivity, "admin activity logged for status change");
+
+    // 5c. Delivery dashboard: STAFF login → orders list → detail with map pin.
+    log("delivery dashboard: STAFF login → orders → map pin…");
+
+    const staffJar = new CookieJar();
+    const staffCsrfRes = await request("/api/auth/csrf", { jar: staffJar });
+    const { csrfToken: staffCsrf } = await staffCsrfRes.json();
+    const staffLoginRes = await request("/api/auth/callback/credentials", {
+      method: "POST",
+      jar: staffJar,
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ csrfToken: staffCsrf, identifier: STAFF_EMAIL, password: STAFF_PASSWORD }).toString(),
+    });
+    assert(staffLoginRes.status === 302, "staff login redirects on success");
+    assert(
+      [...staffJar.cookies.keys()].some((k) => k.includes("next-auth.session-token")),
+      "staff session cookie issued"
+    );
+
+    // The delivery gate: anonymous and customer sessions are redirected away.
+    const deliveryAnon = await request("/delivery");
+    assert(deliveryAnon.status === 307 || deliveryAnon.status === 302, "delivery page redirects anonymous visitors");
+    const deliveryCust = await request("/delivery", { jar });
+    assert(deliveryCust.status === 307 || deliveryCust.status === 302, "delivery page redirects customer sessions");
+
+    const deliveryRes = await request("/delivery", { jar: staffJar });
+    const deliveryHtml = await deliveryRes.text();
+    assert(deliveryRes.status === 200, "delivery dashboard loads for staff (200)");
+    assert(deliveryHtml.includes(orderJson.orderNumber), `order ${orderJson.orderNumber} in delivery dashboard`);
+
+    const detailRes = await request(`/delivery/${orderId}`, { jar: staffJar });
+    const detailHtml = await detailRes.text();
+    assert(detailRes.status === 200, "delivery order detail loads (200)");
+    assert(
+      /maps\.google\.com|output=embed/.test(detailHtml),
+      "Google Maps embed with address pin rendered"
+    );
+    assert(detailHtml.includes("Navigate in Google Maps"), "directions link rendered");
   } finally {
     // 6. Cleanup.
     log("cleaning up…");
