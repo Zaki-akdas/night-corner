@@ -10,6 +10,7 @@ import { CartProvider } from "@/components/cart/cart-context";
 import { ToastHost } from "@/components/ui/toast";
 import { PWAInit } from "@/components/pwa-init";
 import { BrandIntro } from "@/components/brand-intro";
+import { RouteTransition } from "@/components/route-transition";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const sora = Sora({ subsets: ["latin"], variable: "--font-display", weight: ["400", "600", "700", "800"] });
@@ -80,7 +81,9 @@ export default async function RootLayout({
             <BrandIntro />
             <div className="relative flex min-h-screen flex-col">
               <Header settings={settings} />
-              <main className="flex-1">{children}</main>
+              <main className="flex-1">
+                <RouteTransition>{children}</RouteTransition>
+              </main>
               <Footer settings={settings} />
             </div>
             <FloatingWhatsApp whatsappNumber={settings.whatsappNumber} />

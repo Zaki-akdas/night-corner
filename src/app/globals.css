@@ -269,10 +269,34 @@ body {
   transform: perspective(900px) rotateX(3deg) rotateY(-4deg) translateY(-4px);
 }
 
-/* Page transitions */
+/* Page transitions — subtle crossfade between routes */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes page-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+/* `backwards` fill keeps the start state during the delay, then reverts so no
+   transform lingers (a lingering transform would break sticky/fixed children). */
 .page-enter {
-  opacity: 0;
-  transform: translateY(8px);
+  animation: page-in 0.4s ease backwards;
+}
+.page-leave {
+  animation: page-out 0.16s ease backwards;
 }
 
 /* Brand opening splash */
