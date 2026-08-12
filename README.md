@@ -93,6 +93,20 @@ npm run dev          # http://localhost:3000
 
 Try coupon codes **NIGHT10** (10% off over ₹199) and **FREESHIP** (free delivery).
 
+### 🧪 Integration test
+
+```bash
+npm run test:e2e
+```
+
+Runs an automated end-to-end flow — **signup → login → add address → COD order →
+persistence** — against an isolated `test_e2e` Postgres schema on the same
+Supabase project (production data is never touched; the schema is dropped
+afterwards). Verifies order pricing, item snapshots, inventory deductions,
+stock updates, notifications, the admin activity log, and rejection of
+overselling. Uses its own `.next-e2e` build dir so it never disturbs a running
+dev server.
+
 ---
 
 ## ⚙️ Environment variables (`.env`)
