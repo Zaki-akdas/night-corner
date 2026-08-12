@@ -135,7 +135,7 @@ NEXT_PUBLIC_PAYMENT_GATEWAY_KEY, PAYMENT_GATEWAY_SECRET
 WHATSAPP_API_TOKEN, WHATSAPP_BUSINESS_NUMBER_ID
 NEXT_PUBLIC_WHATSAPP_NUMBER="919999999999"
 
-# SMS (Fast2SMS — used for customer delivery alerts when notifySms is on)
+# SMS (Fast2SMS — customer delivery alerts AND store-owner new-order alerts when notifySms is on)
 FAST2SMS_API_KEY
 
 ADMIN_EMAIL="admin@nightcorner.in"

@@ -1,3 +1,6 @@
+import type { Order, OrderItem } from "@prisma/client";
+import { formatINR, getSettings } from "./settings";
+
 /**
  * SMS sender. Uses Fast2SMS (simple Indian provider, REST + API key) when
  * FAST2SMS_API_KEY is set. Without credentials it returns ok:true so flows
@@ -32,4 +35,33 @@ export async function sendSmsMessage(
   } catch (e) {
     return { ok: false, error: String(e) };
   }
+}
+
+/**
+ * SMS the store owner when a new order is placed. This is the SMS counterpart
+ * to notifyOrderToBusiness (WhatsApp): it's a reliable channel even when the
+ * WhatsApp business account isn't set up. Message is compact — SMS is charged
+ * per segment. Sent to the same owner number as the WhatsApp alert.
+ */
+export async function notifyOrderToBusinessSms(
+  order: Order & { items: OrderItem[] },
+  addressText: string,
+  customerName: string,
+  customerMobile: string
+): Promise<{ ok: boolean; error?: string }> {
+  const settings = await getSettings();
+  const itemCount = order.items.reduce((n, i) => n + i.quantity, 0);
+  const time = new Date(order.createdAt).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const msg = [
+    "🌙 NEW ORDER — NIGHT CORNER",
+    `Order: ${order.orderNumber}`,
+    `Total: ${formatINR(order.total)} · ${itemCount} item(s) · ${order.paymentMethod}`,
+    `Customer: ${customerName} · ${customerMobile}`,
+    `Address: ${addressText}`,
+    `Time: ${time}`,
+  ].join("\n");
+  return sendSmsMessage(settings.whatsappNumber, msg);
 }

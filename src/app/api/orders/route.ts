@@ -8,6 +8,7 @@ import { getOpenStatus } from "@/lib/hours";
 import { computeOrderPricing } from "@/lib/pricing";
 import { generateOrderNumber } from "@/lib/orders";
 import { notifyOrderToBusiness } from "@/lib/whatsapp";
+import { notifyOrderToBusinessSms } from "@/lib/sms";
 import { logActivity, notifyAdmin } from "@/lib/admin";
 import { broadcastOrderUpdate } from "@/lib/realtime";
 
@@ -199,6 +200,12 @@ export async function POST(req: Request) {
 
     // External WhatsApp notification — non-blocking is fine.
     notifyOrderToBusiness(result, addressText, customerName, customerMobile).catch(() => {});
+
+    // SMS the store owner too — a reliable channel even when the WhatsApp
+    // business account isn't set up. Gated on the store's SMS toggle.
+    if (settings.notifySms) {
+      notifyOrderToBusinessSms(result, addressText, customerName, customerMobile).catch(() => {});
+    }
 
     // Live push to the delivery dashboard / tracking pages.
     await broadcastOrderUpdate({

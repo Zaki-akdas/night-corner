@@ -472,6 +472,9 @@ async function main() {
     });
     const orderJson = await orderRes.json();
     assert(orderRes.status === 200 && orderJson.orderId, `COD order placed (${orderJson.orderNumber})`);
+    // With notifySms on, placement also runs the store-owner SMS sender in
+    // demo mode — a crash there would fail this assertion.
+    assert(TEST_SETTINGS.notifySms === true, "SMS notifications enabled for the owner-alert path");
     orderId = orderJson.orderId;
 
     const overRes = await request("/api/orders", {
