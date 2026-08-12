@@ -44,7 +44,8 @@ try {
   console.log("status:", res.status, "| toggle:", hasToggle);
   // data-order-number appears only when order cards are rendered (empty
   // dashboard has none) — verified in the E2E/local browser instead.
-  process.exit(res.status === 200 && hasToggle ? 0 : 1);
+  // Set exitCode (not process.exit) so the finally block still runs.
+  process.exitCode = res.status === 200 && hasToggle ? 0 : 1;
 } finally {
   await prisma.user.deleteMany({ where: { email: STAFF_EMAIL } });
   await prisma.$disconnect();

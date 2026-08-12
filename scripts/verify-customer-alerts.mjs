@@ -62,8 +62,8 @@ try {
   const address = await prisma.address.create({
     data: {
       userId: customer.id, fullName: "Cust Alert", mobile: "+919999998888",
-      house: "12", street: "Test Street", area: "Vijay Nagar", city: "Indore",
-      state: "MP", pincode: "452010", lat: 22.7533, lng: 75.8937, isDefault: true,
+      house: "12", street: "Test Street", area: "Arera Colony", city: "Bhopal",
+      state: "MP", pincode: "462016", lat: 23.265, lng: 77.123, isDefault: true,
     },
   });
   const sHash = await bcrypt.hash(STAFF_PASSWORD, 10);
