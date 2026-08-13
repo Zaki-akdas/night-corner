@@ -43,7 +43,8 @@ export default function SignupPage() {
       password: form.password,
       redirect: false,
     });
-    router.push("/account");
+    // Land on the home page after signup, matching the login flow.
+    router.push("/");
     router.refresh();
   };
 
