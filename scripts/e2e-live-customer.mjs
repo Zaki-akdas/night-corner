@@ -2,7 +2,9 @@
 /* Live customer-journey check against the Vercel production deployment.
  * Creates a real customer, adds a Bhopal address, places COD + UPI orders,
  * and verifies every public feature: signup, login, quote, order, tracking,
- * account pages. Prints a PASS/FAIL line per check.
+ * account pages, invoice (exact breakdown + print wiring + access), and the
+ * full delivery flow (OFD, proof-photo upload, PIN handover, DELIVERED).
+ * Prints a PASS/FAIL line per check.
  */
 const BASE = process.env.BASE || "https://night-corner.vercel.app";
 const EMAIL = "zakicustomer@nightcorner.in";
@@ -12,6 +14,15 @@ const MOBILE = "9876504321";
 // Seed-default admin credentials (override via env for other deployments).
 const ADMIN_EMAIL = process.env.LIVE_ADMIN_EMAIL || "admin@nightcorner.in";
 const ADMIN_PASSWORD = process.env.LIVE_ADMIN_PASSWORD || "admin123";
+// Seed-default delivery-staff credentials for the delivery-flow checks.
+const STAFF_EMAIL = process.env.LIVE_STAFF_EMAIL || "delivery@nightcorner.in";
+const STAFF_PASSWORD = process.env.LIVE_STAFF_PASSWORD || "delivery123";
+
+// 1×1 transparent PNG used as the proof-of-delivery photo.
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64"
+);
 
 let failures = 0;
 const ok = (m) => console.log(`  \x1b[32m✓\x1b[0m ${m}`);
@@ -260,6 +271,120 @@ async function main() {
   // Anonymous requests are blocked from invoices.
   const anonInv = await req(`/api/orders/${orderId}/invoice`);
   anonInv.status === 401 ? ok(`anonymous invoice access blocked (HTTP ${anonInv.status})`) : fail(`anonymous invoice HTTP ${anonInv.status} (expected 401)`);
+
+  // 11. Delivery flow: OFD → proof photo → PIN handover → DELIVERED.
+  console.log("delivery flow: OFD → photo → PIN → DELIVERED…");
+
+  const staffLogin = await login(STAFF_EMAIL, STAFF_PASSWORD);
+  staffLogin.hasSession ? ok("staff login succeeds") : fail("staff login failed");
+
+  if (staffLogin.hasSession) {
+    // The delivery status API is staff/admin only — a customer session is blocked.
+    const custGate = await req(`/api/delivery/orders/${orderId}/status`, {
+      method: "PATCH",
+      jar,
+      body: JSON.stringify({ status: "DELIVERED" }),
+    });
+    custGate.status === 307 || custGate.status === 302
+      ? ok("customer session blocked from delivery status API")
+      : fail(`customer session NOT blocked (HTTP ${custGate.status})`);
+
+    // 11a. Out for delivery — generates the customer's 4-digit handover PIN.
+    const ofdRes = await req(`/api/delivery/orders/${orderId}/status`, {
+      method: "PATCH",
+      jar: staffLogin.jar,
+      body: JSON.stringify({ status: "OUT_FOR_DELIVERY" }),
+    });
+    const ofdJson = await ofdRes.json().catch(() => ({}));
+    ofdRes.status === 200 && ofdJson.status === "OUT_FOR_DELIVERY"
+      ? ok("staff marks order OUT_FOR_DELIVERY")
+      : fail(`OFD failed: HTTP ${ofdRes.status} ${JSON.stringify(ofdJson).slice(0, 120)}`);
+
+    // The delivery detail page shows the shop→address route map. (The PIN is
+    // only rendered there after a proof photo exists, so it comes from the
+    // customer order page instead.)
+    const delDetail = await req(`/delivery/${orderId}`, { jar: staffLogin.jar });
+    const delDetailHtml = await delDetail.text();
+    delDetailHtml.includes("saddr=") && delDetailHtml.includes("daddr=")
+      ? ok("delivery route map (shop → address) renders")
+      : fail("delivery route map missing");
+
+    // The customer order page shows the PIN card from OUT_FOR_DELIVERY onward
+    // — the same PIN the OFD notification delivers to the customer.
+    const custAfterOfd = await req(`/account/orders/${orderId}`, { jar });
+    const custAfterOfdHtml = await custAfterOfd.text();
+    const pinMatch = custAfterOfdHtml.match(/tracking-\[0\.3em\][^>]*>(\d{4})</);
+    const deliveryPin = pinMatch ? pinMatch[1] : null;
+    deliveryPin
+      ? ok(`delivery PIN issued and shown to the customer (${deliveryPin})`)
+      : fail("delivery PIN not shown on the customer order page");
+
+    // 11b. Proof-of-delivery photo upload (requires the Supabase bucket).
+    const photoForm = new FormData();
+    photoForm.append("file", new Blob([TINY_PNG], { type: "image/png" }), "proof.png");
+    const photoRes = await req(`/api/delivery/orders/${orderId}/photo`, {
+      method: "POST",
+      jar: staffLogin.jar,
+      body: photoForm,
+    });
+    const photoJson = photoRes.status === 200 ? await photoRes.json().catch(() => ({})) : {};
+    const storageReady =
+      photoRes.status === 200 && String(photoJson.url || "").includes("delivery-proofs");
+    storageReady
+      ? ok("staff uploads proof photo (public storage URL)")
+      : fail(`photo upload failed (HTTP ${photoRes.status}) — delivery-proofs bucket not provisioned?`);
+
+    // 11c. PIN + photo gating: wrong PIN rejected, then DELIVERED succeeds.
+    let deliveredOk = false;
+    if (storageReady && deliveryPin) {
+      const wrongPin = await req(`/api/delivery/orders/${orderId}/status`, {
+        method: "PATCH",
+        jar: staffLogin.jar,
+        body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: photoJson.url, deliveryPin: "0000" }),
+      });
+      wrongPin.status === 400
+        ? ok("wrong delivery PIN rejected")
+        : fail(`wrong PIN NOT rejected (HTTP ${wrongPin.status})`);
+
+      const deliveredRes = await req(`/api/delivery/orders/${orderId}/status`, {
+        method: "PATCH",
+        jar: staffLogin.jar,
+        body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: photoJson.url, deliveryPin }),
+      });
+      deliveredRes.status === 200
+        ? ok("staff marks order DELIVERED (photo + PIN)")
+        : fail(`DELIVERED failed (HTTP ${deliveredRes.status})`);
+      deliveredOk = deliveredRes.status === 200;
+    } else {
+      console.log("  ⚠️ skipping DELIVERED-with-photo assertions (storage or PIN unavailable)");
+    }
+
+    // 11d. Verify the delivered state end-to-end.
+    if (deliveredOk) {
+      const trackAfter = await req(`/api/orders/track?orderNumber=${orderJson.orderNumber}`);
+      const trackAfterJson = await trackAfter.json().catch(() => ({}));
+      trackAfterJson.status === "DELIVERED"
+        ? ok("track API shows DELIVERED")
+        : fail(`track status after delivery = ${trackAfterJson.status}`);
+
+      const custFinal = await req(`/account/orders/${orderId}`, { jar });
+      const custFinalHtml = await custFinal.text();
+      custFinalHtml.includes("Delivered")
+        ? ok("customer order page shows Delivered")
+        : fail("customer order page missing Delivered status");
+      custFinalHtml.includes("Delivery verified")
+        ? ok("customer order page shows the PIN confirmation (delivered notification proxy)")
+        : fail("customer order page missing PIN confirmation");
+
+      const dash = await req("/delivery", { jar: staffLogin.jar });
+      const dashHtml = await dash.text();
+      dashHtml.includes(orderJson.orderNumber)
+        ? fail("delivered order still on the delivery dashboard")
+        : ok("delivered order leaves the delivery dashboard");
+    } else {
+      console.log("  ⚠️ skipping post-delivery state checks (order not delivered)");
+    }
+  }
 
   console.log(`\n[e2e-live] ${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}\n`);
   process.exit(failures === 0 ? 0 : 1);
