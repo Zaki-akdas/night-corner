@@ -17,12 +17,18 @@
  *                             verification; cleans up only test data so the
  *                             schema stays available for the next build.
  *
+ * Also runs a dynamic-route sweep: every [param] page and API route is
+ * discovered from src/app and probed over HTTP. A regression in the Next 16
+ * async params/searchParams contract (the route 500s) fails the suite, and a
+ * NEW dynamic route without a probe fails the coverage guard — so the async
+ * params break can never ship silently again.
+ *
  * Usage:
  *   npm run test:e2e                                   # local mode
  *   E2E_BASE_URL=https://preview.vercel.app npm run test:e2e   # remote mode
  */
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, copyFileSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, copyFileSync, rmSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
@@ -45,6 +51,10 @@ const CONFIG_PATH = path.join(ROOT, "next.config.js");
 const CONFIG_BAK = path.join(ROOT, ".next.config.e2e.bak");
 const TSCONFIG_PATH = path.join(ROOT, "tsconfig.json");
 const TSCONFIG_BAK = path.join(ROOT, ".tsconfig.e2e.bak");
+// Next also rewrites next-env.d.ts to reference <distDir>/dev/types — back it
+// up alongside tsconfig so the main project's type refs are restored exactly.
+const NEXT_ENV_PATH = path.join(ROOT, "next-env.d.ts");
+const NEXT_ENV_BAK = path.join(ROOT, ".next-env.e2e.bak");
 const TEST_DIST = ".next-e2e";
 
 const log = (m) => console.log(`\x1b[36m[e2e]\x1b[0m ${m}`);
@@ -193,9 +203,10 @@ function installIsolatedDistDir() {
   if (injected === original) throw new Error("could not inject distDir into next.config.js");
   copyFileSync(CONFIG_PATH, CONFIG_BAK);
   writeFileSync(CONFIG_PATH, injected);
-  // Next.js rewrites tsconfig.json to include <distDir>/types — back it up so
-  // we can restore it exactly.
+  // Next.js rewrites tsconfig.json + next-env.d.ts to include <distDir>/types
+  // — back both up so we can restore them exactly.
   if (existsSync(TSCONFIG_PATH)) copyFileSync(TSCONFIG_PATH, TSCONFIG_BAK);
+  if (existsSync(NEXT_ENV_PATH)) copyFileSync(NEXT_ENV_PATH, NEXT_ENV_BAK);
 }
 
 function restoreConfig() {
@@ -207,13 +218,18 @@ function restoreConfig() {
     copyFileSync(TSCONFIG_BAK, TSCONFIG_PATH);
     rmSync(TSCONFIG_BAK, { force: true });
   }
+  if (existsSync(NEXT_ENV_BAK)) {
+    copyFileSync(NEXT_ENV_BAK, NEXT_ENV_PATH);
+    rmSync(NEXT_ENV_BAK, { force: true });
+  }
   rmSync(path.join(ROOT, TEST_DIST), { recursive: true, force: true });
 }
 
 // Remote-mode cleanup: remove exactly what this run created so the schema stays
 // empty but alive for the next preview build (a dropped schema would break the
-// next deployment's build-time sitemap query).
-async function cleanupRemoteData(prisma, userId, orderId) {
+// next deployment's build-time sitemap query). Restores app_settings so the
+// live shop's hours/location are never left pointing at test values.
+async function cleanupRemoteData(prisma, userId, orderId, originalSettings) {
   if (orderId) {
     const order = await prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
     if (order) {
@@ -236,7 +252,199 @@ async function cleanupRemoteData(prisma, userId, orderId) {
   await prisma.user.delete({ where: { email: STAFF_EMAIL } }).catch(() => {});
   await prisma.product.deleteMany({ where: { sku: { startsWith: "TEST-" } } });
   await prisma.category.deleteMany({ where: { slug: "test-category" } });
+  // The seed overwrites app_settings with test hours/location — restore the
+  // shop's real values (or drop the row if it didn't exist before).
+  if (originalSettings) {
+    await prisma.settings.upsert({
+      where: { key: "app_settings" },
+      update: { value: originalSettings.value },
+      create: { key: "app_settings", value: originalSettings.value },
+    });
+    ok("restored app_settings to pre-run values");
+  } else {
+    await prisma.settings.deleteMany({ where: { key: "app_settings" } }).catch(() => {});
+    ok("removed test app_settings row (none existed before)");
+  }
   ok("removed seeded test data (schema kept for preview builds)");
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic-route sweep (Next 16 async params/searchParams regression guard)
+// ---------------------------------------------------------------------------
+//
+// Next 16 made `params`/`searchParams` Promises. Accessing them synchronously
+// (the pre-16 pattern) returns `undefined` at runtime, which crashed every
+// dynamic route/page with a 500 — and the main flow only exercised a handful
+// of them, so the rest broke silently. This sweep walks src/app for EVERY
+// dynamic route and searchParams page, probes each over HTTP with real seeded
+// data and the right session, and fails on any unexpected status. The coverage
+// guard additionally fails when a NEW dynamic route appears without a probe —
+// so a regression in this contract can never ship silently again.
+
+function discoverDynamicPagesAndRoutes() {
+  const appDir = path.join(ROOT, "src", "app");
+  const dynamic = new Set();
+  const searchParamPages = new Set();
+  const walk = (dir, segs) => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.name.startsWith(".")) continue;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full, [...segs, e.name]);
+      else if (e.name === "page.tsx" || e.name === "route.ts") {
+        const pattern = "/" + segs.join("/");
+        if (segs.some((s) => /^\[.*\]$/.test(s))) dynamic.add(pattern);
+        // Server pages reading searchParams had the same async-break bug class.
+        if (e.name === "page.tsx") {
+          const src = readFileSync(full, "utf8");
+          if (/searchParams\s*:\s*Promise</.test(src)) searchParamPages.add(pattern);
+        }
+      }
+    }
+  };
+  walk(appDir, []);
+  return { dynamic: [...dynamic].sort(), searchParamPages: [...searchParamPages].sort() };
+}
+
+async function sweepDynamicRoutes(ctx) {
+  const { prisma, chips, category, orderId, userId, address, jars } = ctx;
+  const { customer, admin, staff } = jars;
+  const discovered = discoverDynamicPagesAndRoutes();
+
+  // Throwaway rows so DELETE probes are deterministic (Prisma `delete` on a
+  // missing id 500s, and deleting seeded rows would break the flow). The
+  // throwaway address is also what the address DELETE probe removes — the
+  // customer's real address is referenced by the order's FK, so deleting it
+  // would 500.
+  const ts = Date.now();
+  const sweepCoupon = await prisma.coupon.create({
+    data: { code: `SWEEP-${ts}`, type: "FIXED", value: 10, active: true },
+  });
+  const sweepCategory = await prisma.category.create({
+    data: { name: `Sweep ${ts}`, slug: `sweep-${ts}`, order: 99, active: true },
+  });
+  const sweepProduct = await prisma.product.create({
+    data: {
+      name: `Sweep Product ${ts}`,
+      slug: `sweep-product-${ts}`,
+      description: "Dynamic-route sweep throwaway",
+      categoryId: category.id,
+      price: 1,
+      mrp: 1,
+      image: "/images/products/parle-g/1.jpg",
+      stock: 1,
+      sku: `TEST-SWEEP-${ts}`,
+      unit: "1 pc",
+    },
+  });
+  const sweepAddress = await prisma.address.create({
+    data: {
+      userId,
+      fullName: "Sweep",
+      mobile: "9876500099",
+      house: "1",
+      street: "Sweep St",
+      area: "Sweep Area",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452010",
+      lat: 22.754,
+      lng: 75.894,
+    },
+  });
+
+  const P = (method, url, { jar, body } = {}) =>
+    request(url, { method, jar, body: body ? JSON.stringify(body) : undefined });
+
+  // pattern → one or more probes. Every discovered pattern must be present
+  // here (the coverage guard below enforces it).
+  const probes = [
+    // ── dynamic pages ──
+    { pattern: "/shop/[slug]", method: "GET", label: "shop/[slug] (valid)", run: () => P("GET", `/shop/${chips.slug}`), allowed: [200] },
+    { pattern: "/shop/[slug]", method: "GET", label: "shop/[slug] (bogus → 404)", run: () => P("GET", "/shop/does-not-exist-xyz"), allowed: [404] },
+    { pattern: "/category/[slug]", method: "GET", label: "category/[slug] (valid)", run: () => P("GET", `/category/${category.slug}`), allowed: [200] },
+    { pattern: "/category/[slug]", method: "GET", label: "category/[slug] (bogus → 404)", run: () => P("GET", "/category/does-not-exist-xyz"), allowed: [404] },
+    { pattern: "/account/orders/[id]", method: "GET", label: "account/orders/[id] (customer)", run: () => P("GET", `/account/orders/${orderId}`, { jar: customer }), allowed: [200] },
+    { pattern: "/account/orders/[id]", method: "GET", label: "account/orders/[id] (anon → redirect)", run: () => P("GET", `/account/orders/${orderId}`), allowed: [307, 302] },
+    { pattern: "/admin/products/[id]", method: "GET", label: "admin/products/[id] (admin)", run: () => P("GET", `/admin/products/${chips.id}`, { jar: admin }), allowed: [200] },
+    { pattern: "/admin/orders/[id]", method: "GET", label: "admin/orders/[id] (admin)", run: () => P("GET", `/admin/orders/${orderId}`, { jar: admin }), allowed: [200] },
+    { pattern: "/delivery/[orderId]", method: "GET", label: "delivery/[orderId] (staff)", run: () => P("GET", `/delivery/${orderId}`, { jar: staff }), allowed: [200] },
+    // ── searchParams server pages ──
+    { pattern: "/shop", method: "GET", label: "shop searchParams filters", run: () => P("GET", "/shop?q=chips&sort=price-asc"), allowed: [200] },
+    { pattern: "/delivery", method: "GET", label: "delivery searchParams filters (staff)", run: () => P("GET", "/delivery?payment=COD&sort=newest", { jar: staff }), allowed: [200] },
+    { pattern: "/admin/orders", method: "GET", label: "admin/orders searchParams filters (admin)", run: () => P("GET", "/admin/orders?status=CONFIRMED", { jar: admin }), allowed: [200] },
+    // ── account API ──
+    { pattern: "/api/account/addresses/[id]", method: "PATCH", label: "address PATCH (customer, no-op)", run: () => P("PATCH", `/api/account/addresses/${address.id}`, { jar: customer, body: { area: "Vijay Nagar" } }), allowed: [200] },
+    { pattern: "/api/account/addresses/[id]", method: "DELETE", label: "address DELETE (customer, throwaway)", run: () => P("DELETE", `/api/account/addresses/${sweepAddress.id}`, { jar: customer }), allowed: [200] },
+    // ── admin API ──
+    { pattern: "/api/admin/categories/[id]", method: "PATCH", label: "category PATCH (admin)", run: () => P("PATCH", `/api/admin/categories/${category.id}`, { jar: admin, body: { name: "Test Category" } }), allowed: [200] },
+    { pattern: "/api/admin/categories/[id]", method: "DELETE", label: "category DELETE (admin, throwaway)", run: () => P("DELETE", `/api/admin/categories/${sweepCategory.id}`, { jar: admin }), allowed: [200] },
+    { pattern: "/api/admin/coupons/[id]", method: "PATCH", label: "coupon PATCH (admin, throwaway)", run: () => P("PATCH", `/api/admin/coupons/${sweepCoupon.id}`, { jar: admin, body: { active: false } }), allowed: [200] },
+    { pattern: "/api/admin/coupons/[id]", method: "DELETE", label: "coupon DELETE (admin, throwaway)", run: () => P("DELETE", `/api/admin/coupons/${sweepCoupon.id}`, { jar: admin }), allowed: [200] },
+    { pattern: "/api/admin/inventory/[id]", method: "POST", label: "inventory POST (admin, delta 0)", run: () => P("POST", `/api/admin/inventory/${chips.id}`, { jar: admin, body: { delta: 0, reason: "ADJUSTMENT", note: "sweep" } }), allowed: [200] },
+    { pattern: "/api/admin/products/[id]", method: "PATCH", label: "product PATCH (admin, no-op)", run: () => P("PATCH", `/api/admin/products/${chips.id}`, { jar: admin, body: { name: "Test Chips" } }), allowed: [200] },
+    { pattern: "/api/admin/products/[id]", method: "DELETE", label: "product DELETE (admin, throwaway)", run: () => P("DELETE", `/api/admin/products/${sweepProduct.id}`, { jar: admin }), allowed: [200] },
+    { pattern: "/api/admin/users/[id]", method: "PATCH", label: "user PATCH (admin, no-op role)", run: () => P("PATCH", `/api/admin/users/${userId}`, { jar: admin, body: { role: "CUSTOMER" } }), allowed: [200] },
+    { pattern: "/api/admin/orders/[id]/status", method: "PATCH", label: "admin order status PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/status", { jar: admin, body: { status: "CONFIRMED" } }), allowed: [404] },
+    // ── delivery API (bogus id → 404 proves params resolve + lookup runs) ──
+    { pattern: "/api/delivery/orders/[id]/status", method: "PATCH", label: "delivery status PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/status", { jar: staff, body: { status: "OUT_FOR_DELIVERY" } }), allowed: [404] },
+    { pattern: "/api/delivery/orders/[id]/photo", method: "POST", label: "delivery photo POST (staff, bogus → 404)", run: () => P("POST", "/api/delivery/orders/not-a-real-id/photo", { jar: staff }), allowed: [404] },
+    // ── customer API ──
+    { pattern: "/api/orders/[id]/invoice", method: "GET", label: "invoice GET (customer)", run: () => P("GET", `/api/orders/${orderId}/invoice`, { jar: customer }), allowed: [200] },
+    // ── NextAuth catch-all (framework-handled; exercised by every login) ──
+    { pattern: "/api/auth/[...nextauth]", method: "GET", label: "nextauth catch-all (providers)", run: () => P("GET", "/api/auth/providers"), allowed: [200] },
+  ];
+
+  try {
+    // Coverage guard: a dynamic route/page added to src/app without a probe
+    // here fails the suite with a loud message instead of passing silently.
+    const covered = new Set(probes.map((p) => p.pattern));
+    const missingDynamic = discovered.dynamic.filter((p) => !covered.has(p));
+    const missingSP = discovered.searchParamPages.filter((p) => !covered.has(p));
+    assert(
+      missingDynamic.length === 0,
+      `every dynamic page/route has a sweep probe (uncovered: ${missingDynamic.join(", ") || "none"})`
+    );
+    assert(
+      missingSP.length === 0,
+      `every searchParams page has a sweep probe (uncovered: ${missingSP.join(", ") || "none"})`
+    );
+
+    for (const p of probes) {
+      const res = await p.run();
+      if (p.allowed.includes(res.status)) {
+        ok(`${p.method} ${p.pattern} — ${p.label} → ${res.status}`);
+      } else {
+        failures++;
+        fail(`${p.method} ${p.pattern} — ${p.label} → ${res.status} (expected ${p.allowed.join("|")})`);
+      }
+    }
+
+    // The throwaway rows must actually be gone (the DELETE probes did real
+    // work). The product DELETE route soft-deletes (active: false) instead of
+    // removing the row — both behaviors are verified.
+    const couponGone = !(await prisma.coupon.findUnique({ where: { id: sweepCoupon.id } }));
+    const categoryGone = !(await prisma.category.findUnique({ where: { id: sweepCategory.id } }));
+    const productSoftDeleted = (await prisma.product.findUnique({ where: { id: sweepProduct.id } }))?.active === false;
+    const addressGone = !(await prisma.address.findUnique({ where: { id: sweepAddress.id } }));
+    assert(
+      couponGone && categoryGone && productSoftDeleted && addressGone,
+      "throwaway rows removed by their DELETE probes"
+    );
+  } finally {
+    // If any probe failed mid-way, still remove the throwaways (TEST- sku is
+    // also swept by remote cleanup).
+    await prisma.coupon.deleteMany({ where: { id: sweepCoupon.id } }).catch(() => {});
+    await prisma.category.deleteMany({ where: { id: sweepCategory.id } }).catch(() => {});
+    await prisma.product.deleteMany({ where: { id: sweepProduct.id } }).catch(() => {});
+    await prisma.address.deleteMany({ where: { id: sweepAddress.id } }).catch(() => {});
+    await prisma.inventoryTx.deleteMany({ where: { note: "sweep" } }).catch(() => {});
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -341,6 +549,11 @@ async function main() {
       unit: "500 ml",
     },
   });
+  // In remote mode the seed overwrites the SHARED app_settings row — capture
+  // the shop's real values first so cleanup can restore them exactly.
+  const originalSettings = REMOTE_MODE
+    ? await prisma.settings.findUnique({ where: { key: "app_settings" } })
+    : null;
   await prisma.settings.upsert({
     where: { key: "app_settings" },
     update: { value: JSON.stringify(TEST_SETTINGS) },
@@ -857,6 +1070,20 @@ async function main() {
 
     const trackPageRes = await request(`/track-order?order=${orderJson.orderNumber}`);
     assert(trackPageRes.status === 200, "track order page loads (200)");
+
+    // 5g. Dynamic-route sweep — every [param] page/route + searchParams page
+    // on the running build, so the Next 16 async params/searchParams contract
+    // is exercised exhaustively (a regression 500s any of these and fails CI).
+    log("dynamic-route sweep (Next 16 async params/searchParams guard)…");
+    await sweepDynamicRoutes({
+      prisma,
+      chips,
+      category,
+      orderId,
+      userId,
+      address,
+      jars: { customer: jar, admin: adminJar, staff: staffJar },
+    });
   } finally {
     // 6. Cleanup.
     log("cleaning up…");
@@ -890,7 +1117,7 @@ async function main() {
       }
     }
     if (REMOTE_MODE) {
-      await cleanupRemoteData(prisma, userId, orderId);
+      await cleanupRemoteData(prisma, userId, orderId, originalSettings);
     } else {
       try {
         await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
