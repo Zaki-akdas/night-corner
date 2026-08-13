@@ -80,6 +80,24 @@
   --glow-c: 236 72 153;
 }
 
+/* Ocean — deep cyan/sky night */
+[data-theme="ocean"] {
+  --accent-purple: 56 189 248; /* #38bdf8 */
+  --accent-blue: 34 211 238; /* #22d3ee */
+  --accent-cyan: 165 243 252; /* #a5f3fc */
+  --accent-pink: 96 165 250; /* #60a5fa */
+  --accent-yellow: 251 191 36;
+  --accent-amber: 245 158 11;
+  --accent-from: 14 165 233; /* sky-500 */
+  --accent-to: 8 145 178; /* teal-600 */
+  --head-a: 125 211 252; /* sky-300 */
+  --head-b: 34 211 238; /* cyan-400 */
+  --head-c: 96 165 250; /* blue-400 */
+  --glow-a: 56 189 248;
+  --glow-b: 34 211 238;
+  --glow-c: 59 130 246;
+}
+
 /* Smooth color morphing while a theme switch animates */
 html.theme-anim *,
 html.theme-anim *::before,

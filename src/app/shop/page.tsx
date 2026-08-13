@@ -16,39 +16,40 @@ type SP = {
   discount?: string;
 };
 
-export default async function ShopPage({ searchParams }: { searchParams: SP }) {
+export default async function ShopPage({ searchParams }: { searchParams: Promise<SP> }) {
+  const sp = await searchParams;
   const categories = await prisma.category.findMany({
     where: { active: true },
     orderBy: { order: "asc" },
   });
 
   const where: Prisma.ProductWhereInput = { active: true };
-  if (searchParams.q) {
+  if (sp.q) {
     where.OR = [
-      { name: { contains: searchParams.q } },
-      { shortDesc: { contains: searchParams.q } },
-      { keywords: { contains: searchParams.q } },
-      { sku: { contains: searchParams.q.toUpperCase() } },
+      { name: { contains: sp.q } },
+      { shortDesc: { contains: sp.q } },
+      { keywords: { contains: sp.q } },
+      { sku: { contains: sp.q.toUpperCase() } },
     ];
   }
-  if (searchParams.category) {
-    where.category = { slug: searchParams.category };
+  if (sp.category) {
+    where.category = { slug: sp.category };
   }
-  if (searchParams.veg === "1") where.isVeg = true;
-  if (searchParams.available === "1") where.stock = { gt: 0 };
+  if (sp.veg === "1") where.isVeg = true;
+  if (sp.available === "1") where.stock = { gt: 0 };
   const priceFilter: Prisma.FloatFilter = {};
-  if (searchParams.min) priceFilter.gte = Number(searchParams.min);
-  if (searchParams.max) priceFilter.lte = Number(searchParams.max);
+  if (sp.min) priceFilter.gte = Number(sp.min);
+  if (sp.max) priceFilter.lte = Number(sp.max);
   if (Object.keys(priceFilter).length) where.price = priceFilter;
 
   let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: "desc" };
-  if (searchParams.sort === "price-asc") orderBy = { price: "asc" };
-  if (searchParams.sort === "price-desc") orderBy = { price: "desc" };
-  if (searchParams.sort === "newest") orderBy = { createdAt: "desc" };
+  if (sp.sort === "price-asc") orderBy = { price: "asc" };
+  if (sp.sort === "price-desc") orderBy = { price: "desc" };
+  if (sp.sort === "newest") orderBy = { createdAt: "desc" };
 
   let products = await prisma.product.findMany({ where, orderBy, take: 60 });
-  if (searchParams.discount === "1") products = products.filter((p) => p.mrp > p.price);
-  if (searchParams.sort === "popular")
+  if (sp.discount === "1") products = products.filter((p) => p.mrp > p.price);
+  if (sp.sort === "popular")
     products = products.sort((a, b) => Number(b.bestSeller) - Number(a.bestSeller) || b.sold - a.sold);
 
   return (
@@ -65,7 +66,7 @@ export default async function ShopPage({ searchParams }: { searchParams: SP }) {
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
         <ShopFilters
           categories={categories.map((c) => ({ slug: c.slug, name: c.name }))}
-          active={searchParams}
+          active={sp}
         />
         <div>
           {products.length === 0 ? (

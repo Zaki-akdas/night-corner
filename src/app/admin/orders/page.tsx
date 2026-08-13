@@ -10,13 +10,14 @@ export const dynamic = "force-dynamic";
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: { status?: string; payment?: string; q?: string };
+  searchParams: Promise<{ status?: string; payment?: string; q?: string }>;
 }) {
   await requireAdmin();
+  const sp = await searchParams;
   const where: any = {};
-  if (searchParams.status) where.status = searchParams.status;
-  if (searchParams.payment) where.paymentMethod = searchParams.payment;
-  if (searchParams.q) where.orderNumber = { contains: searchParams.q };
+  if (sp.status) where.status = sp.status;
+  if (sp.payment) where.paymentMethod = sp.payment;
+  if (sp.q) where.orderNumber = { contains: sp.q };
 
   const orders = await prisma.order.findMany({
     where,

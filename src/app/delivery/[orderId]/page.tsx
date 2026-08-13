@@ -32,12 +32,13 @@ export const dynamic = "force-dynamic";
 export default async function DeliveryOrderPage({
   params,
 }: {
-  params: { orderId: string };
+  params: Promise<{ orderId: string }>;
 }) {
+  const { orderId } = await params;
   await requireRole("STAFF", "ADMIN");
 
   const order = await prisma.order.findUnique({
-    where: { id: params.orderId },
+    where: { id: orderId },
     include: { items: true, user: true },
   });
   if (!order) notFound();

@@ -10,9 +10,10 @@ export async function generateStaticParams() {
   return cats.map((c) => ({ slug: c.slug }));
 }
 
-export default async function CategoryPage({ params }: { params: { slug: string } }) {
+export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const category = await prisma.category.findUnique({
-    where: { slug: params.slug },
+    where: { slug },
     include: { products: { where: { active: true } } },
   });
   if (!category || !category.active) notFound();

@@ -9,7 +9,8 @@ const schema = z.object({
   note: z.string().optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const admin = await requireAdmin();
   const body = await req.json();
   const parsed = schema.safeParse(body);
@@ -17,7 +18,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { delta, reason, note } = parsed.data;
 
   const product = await prisma.product.update({
-    where: { id: params.id },
+    where: { id },
     data: { stock: { increment: delta } },
   });
   await prisma.inventoryTx.create({

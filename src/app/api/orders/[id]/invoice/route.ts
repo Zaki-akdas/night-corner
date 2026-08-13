@@ -7,14 +7,15 @@ import { renderInvoiceHtml } from "@/lib/invoice-html";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const isAdmin = (session.user as { role?: string }).role === "ADMIN";
   const order = await prisma.order.findFirst({
-    where: isAdmin ? { id: params.id } : { id: params.id, userId: session.user.id },
+    where: isAdmin ? { id } : { id, userId: session.user.id },
     include: { items: true, user: true },
   });
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });

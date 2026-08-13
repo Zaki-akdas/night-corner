@@ -20,8 +20,9 @@ function safeParse(json: string | null): string[] {
   }
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const product = await prisma.product.findUnique({ where: { slug: params.slug } });
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const product = await prisma.product.findUnique({ where: { slug } });
   if (!product) return { title: "Product not found" };
   return {
     title: product.name,
@@ -30,9 +31,10 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function ProductPage({ params }: { params: { slug: string } }) {
+export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const product = await prisma.product.findUnique({
-    where: { slug: params.slug },
+    where: { slug },
     include: { category: true },
   });
   if (!product || !product.active) notFound();

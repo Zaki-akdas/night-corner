@@ -34,14 +34,15 @@ const VALID_SORTS = new Set(["oldest", "newest", "amount-desc", "amount-asc"]);
 export default async function DeliveryDashboardPage({
   searchParams,
 }: {
-  searchParams?: { status?: string; payment?: string; time?: string; sort?: string };
+  searchParams: Promise<{ status?: string; payment?: string; time?: string; sort?: string }>;
 }) {
   await requireRole("STAFF", "ADMIN");
 
-  const status = VALID_STATUSES.has(searchParams?.status ?? "") ? searchParams!.status! : "";
-  const payment = VALID_PAYMENTS.has(searchParams?.payment ?? "") ? searchParams!.payment! : "";
-  const time = searchParams?.time ?? "";
-  const sort = VALID_SORTS.has(searchParams?.sort ?? "") ? searchParams!.sort! : "oldest";
+  const sp = await searchParams;
+  const status = VALID_STATUSES.has(sp?.status ?? "") ? sp!.status! : "";
+  const payment = VALID_PAYMENTS.has(sp?.payment ?? "") ? sp!.payment! : "";
+  const time = sp?.time ?? "";
+  const sort = VALID_SORTS.has(sp?.sort ?? "") ? sp!.sort! : "oldest";
 
   const where: Prisma.OrderWhereInput = { status: { in: ACTIVE_STATUSES } };
   if (status) where.status = status;

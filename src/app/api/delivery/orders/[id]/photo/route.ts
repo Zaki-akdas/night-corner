@@ -6,10 +6,11 @@ import { uploadDeliveryPhoto } from "@/lib/supabase-storage";
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   await requireRole("STAFF", "ADMIN");
 
-  const order = await prisma.order.findUnique({ where: { id: params.id } });
+  const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   const form = await req.formData().catch(() => null);
@@ -26,7 +27,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const path = `${params.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `${id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
   try {
     const url = await uploadDeliveryPhoto(path, buffer, file.type);

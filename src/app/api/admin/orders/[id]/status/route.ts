@@ -7,14 +7,15 @@ import { broadcastOrderUpdate } from "@/lib/realtime";
 
 const schema = z.object({ status: z.enum(ORDER_STATUSES as [OrderStatus, ...OrderStatus[]]) });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const admin = await requireAdmin();
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
 
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { items: true, user: true },
   });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });

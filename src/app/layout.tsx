@@ -64,8 +64,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const settings = await getSettings();
+  // suppressHydrationWarning: the pre-paint theme script sets data-theme before hydration
   return (
-    <html lang="en" className={`${inter.variable} ${sora.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${sora.variable}`}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         {/* Apply the saved theme before first paint so there's no flash */}

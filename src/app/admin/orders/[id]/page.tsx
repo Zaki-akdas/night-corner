@@ -11,10 +11,11 @@ import { waMeLink } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminOrderDetail({ params }: { params: { id: string } }) {
+export default async function AdminOrderDetail({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   await requireAdmin();
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { items: true, user: true, address: true },
   });
   if (!order) notFound();

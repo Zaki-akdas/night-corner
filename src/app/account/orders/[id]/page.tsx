@@ -11,10 +11,11 @@ import { Download, KeyRound, MapPin, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrderDetailPage({ params }: { params: { id: string } }) {
+export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   const order = await prisma.order.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id, userId: user.id },
     include: { items: true, address: true },
   });
   if (!order) notFound();

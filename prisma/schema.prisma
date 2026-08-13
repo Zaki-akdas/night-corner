@@ -48,6 +48,7 @@ model User {
   image         String?
   role          String    @default("CUSTOMER") // CUSTOMER | ADMIN | STAFF
   status        String    @default("ACTIVE") // ACTIVE | DISABLED
+  theme         String? // preferred theme id, synced across devices
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   accounts      Account[]

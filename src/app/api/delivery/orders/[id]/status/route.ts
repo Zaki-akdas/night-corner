@@ -19,7 +19,8 @@ const schema = z.object({
   deliveryPin: z.string().optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const staff = await requireRole("STAFF", "ADMIN");
 
   const parsed = schema.safeParse(await req.json());
@@ -28,7 +29,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
   const newStatus = parsed.data.status;
 
-  const order = await prisma.order.findUnique({ where: { id: params.id } });
+  const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   if (!(ALLOWED_TRANSITIONS[newStatus] ?? []).includes(order.status)) {
