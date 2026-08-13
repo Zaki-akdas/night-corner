@@ -4,6 +4,7 @@ import { formatINR } from "@/lib/settings";
 import { statusLabel } from "@/lib/orders";
 import Link from "next/link";
 import { Download } from "lucide-react";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,10 @@ export default async function OrdersPage() {
 
   return (
     <div>
-      <h1 className="mb-6 font-display text-2xl font-extrabold text-white">My Orders</h1>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-extrabold text-white">My Orders</h1>
+        <RefreshButton label="Refresh" />
+      </div>
       {orders.length === 0 ? (
         <div className="card p-10 text-center text-slate-400">
           No orders yet. <Link href="/shop" className="text-neon-purple">Start shopping</Link>.

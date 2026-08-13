@@ -13,6 +13,7 @@ import {
   Truck,
 } from "lucide-react";
 import { SalesChart } from "@/components/admin/sales-chart";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import { statusLabel } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
@@ -101,9 +102,12 @@ export default async function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-extrabold text-white sm:text-3xl">Dashboard</h1>
-        <p className="text-slate-400">Tonight at a glance — sales, orders, inventory.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold text-white sm:text-3xl">Dashboard</h1>
+          <p className="text-slate-400">Tonight at a glance — sales, orders, inventory.</p>
+        </div>
+        <RefreshButton label="Refresh stats" />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

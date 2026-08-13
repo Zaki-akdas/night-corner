@@ -1,24 +1,31 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import type { Product } from "@prisma/client";
 
 export default function WishlistPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  useEffect(() => {
+  const load = useCallback(() => {
     fetch("/api/account/wishlist")
       .then((r) => r.json())
       .then(setProducts)
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
   return (
     <div>
-      <h1 className="mb-6 flex items-center gap-2 font-display text-2xl font-extrabold text-white">
-        <Heart className="h-6 w-6 text-neon-pink" /> My Wishlist
-      </h1>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold text-white">
+          <Heart className="h-6 w-6 text-neon-pink" /> My Wishlist
+        </h1>
+        <RefreshButton label="Refresh" onRefresh={load} />
+      </div>
       {products.length === 0 ? (
         <div className="card p-10 text-center text-slate-400">
           Your wishlist is empty. <Link href="/shop" className="text-neon-purple">Discover products</Link>.

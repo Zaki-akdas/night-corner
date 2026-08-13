@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { OrderTimeline } from "@/components/account/order-timeline";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import { useOrderUpdates } from "@/lib/realtime-client";
 import { Loader2, MapPin, Navigation, Package, Search, Truck } from "lucide-react";
 import { STATUS_FLOW } from "@/lib/types";
@@ -163,6 +164,13 @@ function TrackOrderInner() {
             </span>
             {lastUpdated && (
               <span className="ml-2 text-xs text-slate-500">· updated {lastUpdated.toLocaleTimeString()}</span>
+            )}
+            {data && (
+              <RefreshButton
+                className="ml-2"
+                label="Refresh"
+                onRefresh={() => fetchOrder(data.orderNumber, true)}
+              />
             )}
           </div>
 

@@ -4,6 +4,7 @@ import { formatINR } from "@/lib/settings";
 import { statusLabel } from "@/lib/orders";
 import Link from "next/link";
 import { AdminOrderFilters } from "./filters";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +29,12 @@ export default async function AdminOrdersPage({
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-display text-2xl font-extrabold text-white">Orders</h1>
-        <p className="text-slate-400">{orders.length} orders shown</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold text-white">Orders</h1>
+          <p className="text-slate-400">{orders.length} orders shown</p>
+        </div>
+        <RefreshButton label="Refresh orders" />
       </div>
 
       <AdminOrderFilters />

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Trash2, Plus, MapPin, Star, Locate, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 type Address = {
   id: string;
@@ -87,9 +88,12 @@ export default function AddressesPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-2xl font-extrabold text-white">Saved Addresses</h1>
-        <button onClick={() => setEditing({})} className="btn-primary py-2 text-sm">
-          <Plus className="h-4 w-4" /> Add Address
-        </button>
+        <div className="flex items-center gap-2">
+          <RefreshButton label="Refresh" onRefresh={load} />
+          <button onClick={() => setEditing({})} className="btn-primary py-2 text-sm">
+            <Plus className="h-4 w-4" /> Add Address
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
