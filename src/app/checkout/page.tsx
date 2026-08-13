@@ -488,7 +488,7 @@ export default function CheckoutPage() {
                         </a>
                       ) : (
                         <div className="mt-2">
-                          <span className="text-xs text-amber-400">⚠️ No location — required for delivery</span>
+                          <span className="text-xs text-amber-400">⚠️ No location set — tap <strong>"Add delivery location"</strong> below to continue</span>
                           {patchingLocation === a.id ? (
                             <div className="mt-2 space-y-2">
                               <div className="grid grid-cols-2 gap-2">
@@ -610,7 +610,7 @@ export default function CheckoutPage() {
               )}
               {selectedAddress && !addresses.find((x) => x.id === selectedAddress)?.lat && (
                 <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
-                  ⚠️ Your selected address has no delivery location. Click <strong>"Add delivery location"</strong> on the address above before continuing.
+                  ⚠️ Your selected address has no delivery location. Tap the <strong>"Add delivery location"</strong> button on that address card above, then confirm the pop-up, before continuing.
                 </p>
               )}
               <button
@@ -621,7 +621,7 @@ export default function CheckoutPage() {
                   }
                   const a = addresses.find((x) => x.id === selectedAddress);
                   if (!a?.lat || !a?.lng) {
-                    toast.push({ type: "error", message: "⚠️ Add a delivery location to this address first" });
+                    toast.push({ type: "error", message: "⚠️ Tap \"Add delivery location\" on the selected address above to continue" });
                     return;
                   }
                   setStep(2);
