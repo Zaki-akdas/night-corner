@@ -203,6 +203,31 @@ export default function CheckoutPage() {
     );
   };
 
+  // Returns the browser position or null when unavailable / denied / timed out.
+  // Never throws, so address saving can always proceed even without a location.
+  const captureBrowserLocation = (): Promise<GeolocationPosition | null> =>
+    new Promise((resolve) => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      let done = false;
+      const finish = (p: GeolocationPosition | null) => {
+        if (!done) { done = true; resolve(p); }
+      };
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => finish(pos),
+          () => finish(null),
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+        );
+      } catch {
+        finish(null);
+      }
+      // Safety net — never hold up the save longer than ~9 seconds.
+      setTimeout(() => finish(null), 9000);
+    });
+
   const saveAddress = async () => {
     if (!editingAddr) return;
     const required = ["fullName", "mobile", "house", "street", "area", "city", "state", "pincode"] as const;
@@ -220,9 +245,21 @@ export default function CheckoutPage() {
       toast.push({ type: "error", message: "Enter a valid 6-digit PIN code" });
       return;
     }
-    // lat/lng are optional at save time — they are required only when proceeding to delivery
+    // lat/lng are optional at save time — they are required only when proceeding
+    // to delivery. If the user hasn't set coordinates, auto-capture the browser
+    // location so the address saves delivery-ready and checkout never gets stuck.
     setSavingAddr(true);
     try {
+      let lat = editingAddr.lat;
+      let lng = editingAddr.lng;
+      if (!lat || !lng) {
+        const pos = await captureBrowserLocation();
+        if (pos) {
+          lat = +pos.coords.latitude.toFixed(6);
+          lng = +pos.coords.longitude.toFixed(6);
+          setEditingAddr((a) => ({ ...(a ?? {}), lat, lng }));
+        }
+      }
       const payload = {
         fullName: editingAddr.fullName,
         mobile: editingAddr.mobile,
@@ -233,8 +270,8 @@ export default function CheckoutPage() {
         city: editingAddr.city,
         state: editingAddr.state,
         pincode: editingAddr.pincode,
-        lat: editingAddr.lat ?? undefined,
-        lng: editingAddr.lng ?? undefined,
+        lat: lat ?? undefined,
+        lng: lng ?? undefined,
         instructions: editingAddr.instructions || undefined,
       };
       const res = await fetch("/api/account/addresses", {
@@ -251,7 +288,12 @@ export default function CheckoutPage() {
       setAddresses((prev) => [...prev, saved]);
       setSelectedAddress(saved.id);
       setEditingAddr(null);
-      toast.push({ type: "success", message: "Address saved! Now capture your delivery location." });
+      toast.push({
+        type: "success",
+        message: lat && lng
+          ? "Address saved with your delivery location! ✅"
+          : "Address saved! Add a delivery location to continue.",
+      });
     } catch {
       toast.push({ type: "error", message: "Network error — could not save address" });
     } finally {
