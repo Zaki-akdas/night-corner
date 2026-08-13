@@ -22,14 +22,19 @@ export async function PATCH(
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
+  // Verify ownership first
+  const existing = await prisma.address.findFirst({
+    where: { id: params.id, userId: session.user.id },
+  });
+  if (!existing) return NextResponse.json({ error: "Address not found" }, { status: 404 });
   if (body.isDefault) {
     await prisma.address.updateMany({
       where: { userId: session.user.id, isDefault: true },
       data: { isDefault: false },
     });
   }
-  const address = await prisma.address.updateMany({
-    where: { id: params.id, userId: session.user.id },
+  const address = await prisma.address.update({
+    where: { id: params.id },
     data: body,
   });
   return NextResponse.json(address);

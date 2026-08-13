@@ -66,6 +66,9 @@ export default function CheckoutPage() {
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [editingAddr, setEditingAddr] = useState<Partial<Address> | null>(null);
   const [locating, setLocating] = useState(false);
+  const [savingAddr, setSavingAddr] = useState(false);
+  const [patchingLocation, setPatchingLocation] = useState<string | null>(null); // address id being updated
+  const [locationDraft, setLocationDraft] = useState<{ lat: string; lng: string }>({ lat: "", lng: "" });
   const [payment, setPayment] = useState<"COD" | "UPI" | "ONLINE">("COD");
   const [coupon, setCoupon] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -197,32 +200,104 @@ export default function CheckoutPage() {
     const required = ["fullName", "mobile", "house", "street", "area", "city", "state", "pincode"] as const;
     for (const k of required) {
       if (!editingAddr[k]?.toString().trim()) {
-        toast.push({ type: "error", message: `Please enter ${k}` });
+        toast.push({ type: "error", message: `Please fill in: ${k}` });
         return;
       }
+    }
+    if (!/^\d{10}$/.test(editingAddr.mobile!)) {
+      toast.push({ type: "error", message: "Enter a valid 10-digit mobile number" });
+      return;
     }
     if (!/^\d{6}$/.test(editingAddr.pincode!)) {
       toast.push({ type: "error", message: "Enter a valid 6-digit PIN code" });
       return;
     }
-    if (!editingAddr.lat || !editingAddr.lng) {
-      toast.push({ type: "error", message: "Please capture your delivery location" });
+    // lat/lng are optional at save time — they are required only when proceeding to delivery
+    setSavingAddr(true);
+    try {
+      const payload = {
+        fullName: editingAddr.fullName,
+        mobile: editingAddr.mobile,
+        house: editingAddr.house,
+        street: editingAddr.street,
+        area: editingAddr.area,
+        landmark: editingAddr.landmark || undefined,
+        city: editingAddr.city,
+        state: editingAddr.state,
+        pincode: editingAddr.pincode,
+        lat: editingAddr.lat ?? undefined,
+        lng: editingAddr.lng ?? undefined,
+        instructions: editingAddr.instructions || undefined,
+      };
+      const res = await fetch("/api/account/addresses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast.push({ type: "error", message: errData?.error ?? "Could not save address" });
+        return;
+      }
+      const saved: Address = await res.json();
+      setAddresses((prev) => [...prev, saved]);
+      setSelectedAddress(saved.id);
+      setEditingAddr(null);
+      toast.push({ type: "success", message: "Address saved! Now capture your delivery location." });
+    } catch {
+      toast.push({ type: "error", message: "Network error — could not save address" });
+    } finally {
+      setSavingAddr(false);
+    }
+  };
+
+  const patchLocation = async (addressId: string) => {
+    const lat = parseFloat(locationDraft.lat);
+    const lng = parseFloat(locationDraft.lng);
+    if (isNaN(lat) || isNaN(lng)) {
+      toast.push({ type: "error", message: "Enter valid latitude and longitude" });
       return;
     }
-    const res = await fetch("/api/account/addresses", {
-      method: "POST",
+    const res = await fetch(`/api/account/addresses/${addressId}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editingAddr),
+      body: JSON.stringify({ lat, lng }),
     });
     if (!res.ok) {
-      toast.push({ type: "error", message: "Could not save address" });
+      toast.push({ type: "error", message: "Could not update location" });
       return;
     }
-    const saved: Address = await res.json();
-    setAddresses((prev) => [...prev, saved]);
-    setSelectedAddress(saved.id);
-    setEditingAddr(null);
-    toast.push({ type: "success", message: "Address saved" });
+    setAddresses((prev) =>
+      prev.map((a) => (a.id === addressId ? { ...a, lat, lng } : a))
+    );
+    setPatchingLocation(null);
+    setLocationDraft({ lat: "", lng: "" });
+    toast.push({ type: "success", message: "Location saved! ✅" });
+  };
+
+  const captureLocationForPatch = (addressId: string) => {
+    if (!navigator.geolocation) {
+      toast.push({ type: "error", message: "Geolocation not supported. Enter coordinates manually." });
+      setPatchingLocation(addressId);
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        const lat = +pos.coords.latitude.toFixed(6);
+        const lng = +pos.coords.longitude.toFixed(6);
+        setLocationDraft({ lat: String(lat), lng: String(lng) });
+        setPatchingLocation(addressId);
+        toast.push({ type: "success", message: "Location captured — click Save Location" });
+      },
+      () => {
+        setLocating(false);
+        setPatchingLocation(addressId);
+        toast.push({ type: "error", message: "Could not get location. Enter manually below." });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const placeOrder = async () => {
@@ -352,15 +427,69 @@ export default function CheckoutPage() {
                         <br />
                         {a.city} - {a.pincode}, {a.state}
                       </p>
-                      {a.lat && a.lng && (
+                      {a.lat && a.lng ? (
                         <a
                           href={`https://www.google.com/maps?q=${a.lat},${a.lng}`}
                           target="_blank"
                           rel="noreferrer"
                           className="mt-1 inline-flex items-center gap-1 text-xs text-neon-blue hover:underline"
                         >
-                          <MapPin className="h-3 w-3" /> View on map
+                          <MapPin className="h-3 w-3" /> ✅ Location set
                         </a>
+                      ) : (
+                        <div className="mt-2">
+                          <span className="text-xs text-amber-400">⚠️ No location — required for delivery</span>
+                          {patchingLocation === a.id ? (
+                            <div className="mt-2 space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="label text-xs">Latitude</label>
+                                  <input
+                                    className="input text-sm"
+                                    placeholder="e.g. 19.0760"
+                                    value={locationDraft.lat}
+                                    onChange={(e) => setLocationDraft((d) => ({ ...d, lat: e.target.value }))}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="label text-xs">Longitude</label>
+                                  <input
+                                    className="input text-sm"
+                                    placeholder="e.g. 72.8777"
+                                    value={locationDraft.lng}
+                                    onChange={(e) => setLocationDraft((d) => ({ ...d, lng: e.target.value }))}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => patchLocation(a.id)}
+                                  className="btn-primary py-1.5 text-xs flex-1"
+                                >
+                                  Save Location
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setPatchingLocation(null); setLocationDraft({ lat: "", lng: "" }); }}
+                                  className="btn-ghost py-1.5 text-xs"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); captureLocationForPatch(a.id); }}
+                              disabled={locating}
+                              className="mt-1 flex items-center gap-1 text-xs text-neon-purple hover:underline disabled:opacity-50"
+                            >
+                              {locating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Locate className="h-3 w-3" />}
+                              Add delivery location
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -381,21 +510,58 @@ export default function CheckoutPage() {
                     <Field label="PIN Code*"><input className="input" value={editingAddr.pincode ?? ""} onChange={(e) => setEditingAddr({ ...editingAddr, pincode: e.target.value })} /></Field>
                     <Field label="Delivery instructions"><input className="input" value={editingAddr.instructions ?? ""} onChange={(e) => setEditingAddr({ ...editingAddr, instructions: e.target.value })} /></Field>
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <button type="button" onClick={useGeolocation} className="btn-ghost py-2 text-sm" disabled={locating}>
-                      {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Locate className="h-4 w-4" />} Use current location
-                    </button>
-                    {editingAddr.lat && editingAddr.lng && (
-                      <span className="text-xs text-emerald-300">
-                        📍 {editingAddr.lat}, {editingAddr.lng}
-                      </span>
-                    )}
+                  <div className="mt-3 space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button type="button" onClick={useGeolocation} className="btn-ghost py-2 text-sm" disabled={locating}>
+                        {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Locate className="h-4 w-4" />} Use current location
+                      </button>
+                      {editingAddr.lat && editingAddr.lng ? (
+                        <span className="text-xs text-emerald-300">
+                          ✅ 📍 {editingAddr.lat}, {editingAddr.lng}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-amber-400">📍 Location not yet set (required for delivery)</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="label text-xs">Latitude (manual)</label>
+                        <input
+                          className="input text-sm"
+                          placeholder="e.g. 19.0760"
+                          value={editingAddr.lat ?? ""}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            setEditingAddr({ ...editingAddr, lat: isNaN(v) ? undefined : v });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-xs">Longitude (manual)</label>
+                        <input
+                          className="input text-sm"
+                          placeholder="e.g. 72.8777"
+                          value={editingAddr.lng ?? ""}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            setEditingAddr({ ...editingAddr, lng: isNaN(v) ? undefined : v });
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div className="mt-4 flex gap-2">
-                    <button onClick={saveAddress} className="btn-primary flex-1">Save Address</button>
+                    <button onClick={saveAddress} disabled={savingAddr} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                      {savingAddr ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save Address"}
+                    </button>
                     <button onClick={() => setEditingAddr(null)} className="btn-ghost">Cancel</button>
                   </div>
                 </div>
+              )}
+              {selectedAddress && !addresses.find((x) => x.id === selectedAddress)?.lat && (
+                <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
+                  ⚠️ Your selected address has no delivery location. Click <strong>"Add delivery location"</strong> on the address above before continuing.
+                </p>
               )}
               <button
                 onClick={() => {
@@ -405,7 +571,7 @@ export default function CheckoutPage() {
                   }
                   const a = addresses.find((x) => x.id === selectedAddress);
                   if (!a?.lat || !a?.lng) {
-                    toast.push({ type: "error", message: "Selected address has no location. Add one with location." });
+                    toast.push({ type: "error", message: "⚠️ Add a delivery location to this address first" });
                     return;
                   }
                   setStep(2);
