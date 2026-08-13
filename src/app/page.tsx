@@ -80,7 +80,7 @@ export default async function HomePage() {
           subtitle="What Indore is ordering after dark."
           action={<Link href="/shop?sort=popular" className="btn-ghost text-sm">View all</Link>}
         />
-        <ProductGrid products={bestSellers} />
+        <ProductGrid products={bestSellers} firstPriority />
       </SectionShell>
 
       {/* Midnight cravings / deals */}
@@ -162,7 +162,7 @@ function SectionShell({ id, children }: { id?: string; children: React.ReactNode
   );
 }
 
-function ProductGrid({ products }: { products: Product[] }) {
+function ProductGrid({ products, firstPriority }: { products: Product[]; firstPriority?: boolean }) {
   if (!products.length) {
     return (
       <div className="card grid place-items-center p-10 text-center text-slate-400">
@@ -173,8 +173,8 @@ function ProductGrid({ products }: { products: Product[] }) {
   }
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:gap-5">
-      {products.map((p) => (
-        <ProductCard key={p.id} product={p} />
+      {products.map((p, i) => (
+        <ProductCard key={p.id} product={p} priority={firstPriority && i === 0 ? true : undefined} />
       ))}
     </div>
   );

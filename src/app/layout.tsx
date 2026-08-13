@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Inter, Sora } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -69,8 +70,12 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${sora.variable}`}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        {/* Apply the saved theme before first paint so there's no flash */}
-        <script
+        {/* Apply the saved theme before first paint so there's no flash.
+            next/script with beforeInteractive injects this into the HTML before
+            hydration, so the plain <script> React warning never fires. */}
+        <Script
+          id="nc-theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `try{var t=localStorage.getItem("nc-theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}`,
           }}

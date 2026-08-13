@@ -30,7 +30,7 @@ export async function CategoryGrid() {
                 fill
                 sizes="200px"
                 className="object-cover transition-transform duration-500 group-hover:scale-110"
-                priority={i < 3}
+                loading={i < 3 ? "eager" : undefined}
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-night-950 via-night-950/40 to-transparent" />

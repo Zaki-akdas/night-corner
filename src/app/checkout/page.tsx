@@ -343,7 +343,7 @@ export default function CheckoutPage() {
           alt="Night Corner"
           width={240}
           height={63}
-          priority
+          loading="eager"
           className="mx-auto drop-shadow-neon sm:mx-0"
         />
         <h1 className="mt-3 font-display text-3xl font-extrabold text-white">Checkout</h1>

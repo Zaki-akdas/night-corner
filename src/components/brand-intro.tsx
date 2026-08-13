@@ -118,7 +118,7 @@ export function BrandIntro() {
             alt=""
             width={420}
             height={110}
-            priority
+            loading="eager"
             className="intro-logo h-auto w-[min(72vw,360px)]"
             draggable={false}
           />

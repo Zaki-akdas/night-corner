@@ -91,7 +91,7 @@ export function ProductGallery({
                 alt={`${productName} — view ${active + 1}`}
                 fill
                 sizes="(max-width:1024px) 100vw, 520px"
-                priority
+                loading="eager"
                 className="object-contain p-6 drop-shadow-2xl"
               />
             </motion.div>
@@ -117,7 +117,15 @@ export function ProductGallery({
             }`}
             aria-label={`View image ${i + 1}`}
           >
-            <Image src={src} alt="" fill sizes="80px" className="object-contain p-1.5" />
+            {/* Distinct query keeps this lazy image from colliding with the eager
+                hero in next/image's LCP-src map (the last Image per src wins). */}
+            <Image
+              src={`${src}?v=thumb`}
+              alt=""
+              fill
+              sizes="80px"
+              className="object-contain p-1.5"
+            />
           </button>
         ))}
       </div>

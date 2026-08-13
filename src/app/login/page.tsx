@@ -51,7 +51,7 @@ function LoginInner() {
             alt="Night Corner"
             width={224}
             height={59}
-            priority
+            loading="eager"
             className="mx-auto drop-shadow-neon"
           />
           <h1 className="mt-4 font-display text-2xl font-extrabold text-white">Welcome back</h1>

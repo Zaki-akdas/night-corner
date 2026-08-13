@@ -9,7 +9,8 @@ import type { Product } from "@prisma/client";
 import { useOpenStatus } from "@/hooks/use-open-status";
 import { useMemo, useState } from "react";
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, priority }: { product: Product; priority?: boolean }) {
+  // Next 16: `priority` is deprecated in favor of `preload` for LCP images.
   const { add, setQty, items } = useCart();
   const open = useOpenStatus();
   const inCart = items.find((i) => i.productId === product.id);
@@ -81,6 +82,7 @@ export function ProductCard({ product }: { product: Product }) {
                 alt={product.name}
                 fill
                 sizes="(max-width:768px) 50vw, 280px"
+                loading={priority ? "eager" : undefined}
                 className="object-contain p-4 transition-transform duration-500 group-hover:scale-110"
               />
             </motion.div>

@@ -103,7 +103,7 @@ export function Header({ settings }: { settings: AppSettings }) {
             width={172}
             height={45}
             className="h-9 w-auto drop-shadow-neon sm:h-11"
-            priority
+            loading="eager"
           />
         </Link>
 
