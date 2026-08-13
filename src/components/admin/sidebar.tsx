@@ -79,6 +79,7 @@ function Brand() {
         alt="Night Corner"
         width={172}
         height={45}
+        loading="eager"
         className="h-9 w-auto"
       />
       <span className="text-[10px] tracking-widest text-neon-purple">ADMIN PANEL</span>

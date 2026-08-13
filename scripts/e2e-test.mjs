@@ -23,6 +23,12 @@
  * NEW dynamic route without a probe fails the coverage guard — so the async
  * params break can never ship silently again.
  *
+ * And a browser console check (playwright-core driving the system Chrome/Edge,
+ * no browser download): core pages are visited for real and any script-tag,
+ * LCP-image, or hydration warning — plus uncaught page errors — fails the
+ * suite. This is the regression guard for the warning classes a pure HTTP
+ * sweep cannot observe.
+ *
  * Usage:
  *   npm run test:e2e                                   # local mode
  *   E2E_BASE_URL=https://preview.vercel.app npm run test:e2e   # remote mode
@@ -444,6 +450,131 @@ async function sweepDynamicRoutes(ctx) {
     await prisma.product.deleteMany({ where: { id: sweepProduct.id } }).catch(() => {});
     await prisma.address.deleteMany({ where: { id: sweepAddress.id } }).catch(() => {});
     await prisma.inventoryTx.deleteMany({ where: { note: "sweep" } }).catch(() => {});
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Browser console check (script-tag / LCP / hydration / uncaught errors)
+// ---------------------------------------------------------------------------
+//
+// The HTTP sweep can assert status codes and HTML but never sees what a real
+// browser console reports. This step drives the system Chrome/Edge via
+// playwright-core (no browser download — CI runners and this machine both have
+// one) across the core public pages and fails the suite on:
+//   • "Encountered a script tag while rendering React component"
+//   • "was detected as the Largest Contentful Paint" …with loading="lazy"
+//   • hydration failures / mismatches
+//   • "Cannot update a component while rendering a different component"
+//   • any uncaught page error
+// Known pre-existing noise (next-auth dev session-fetch race) is ignored — it
+// is dev-only and absent from production builds.
+
+function findSystemChrome() {
+  const candidates = [
+    process.env.CHROME_PATH,
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  ].filter(Boolean);
+  return candidates.find((p) => existsSync(p));
+}
+
+async function checkBrowserConsole() {
+  log("browser console check (script-tag / LCP / hydration / uncaught errors)…");
+  const { chromium } = require("playwright-core");
+  const execPath = findSystemChrome();
+  let browser = null;
+  let launchErr = null;
+  if (execPath) {
+    try {
+      browser = await chromium.launch({ headless: true, executablePath: execPath });
+    } catch (e) {
+      launchErr = e;
+    }
+  }
+  if (!browser) {
+    for (const channel of ["chrome", "msedge"]) {
+      try {
+        browser = await chromium.launch({ headless: true, channel });
+        break;
+      } catch (e) {
+        launchErr = e;
+      }
+    }
+  }
+  if (!browser) {
+    log(
+      `⚠️ no system browser available (${(launchErr?.message || "unknown").split("\n")[0]}) — console check skipped (install Chrome/Edge to enable)`
+    );
+    return;
+  }
+
+  const BAD = [
+    /Encountered a script tag while rendering React component/i,
+    /was detected as the Largest Contentful Paint/i,
+    /Hydration failed|hydration (mismatch|error)|did not match|didn't match/i,
+    /Cannot update a component .* while rendering a different component/i,
+  ];
+  const IGNORE = [/CLIENT_FETCH_ERROR/i, /fetch failed/i];
+  const issues = [];
+  const seen = new Set();
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+
+  page.on("console", (msg) => {
+    if (msg.type() !== "error" && msg.type() !== "warning") return;
+    const text = msg.text();
+    if (IGNORE.some((r) => r.test(text))) return;
+    if (BAD.some((r) => r.test(text))) {
+      const key = text.slice(0, 120);
+      if (!seen.has(key)) {
+        seen.add(key);
+        issues.push(`${msg.type()} — ${text}`);
+      }
+    }
+  });
+  page.on("pageerror", (err) => {
+    if (IGNORE.some((r) => r.test(err.message))) return;
+    issues.push(`uncaught error — ${err.message}`);
+  });
+
+  // Core public pages; protected pages are covered by the HTTP sweep. The
+  // product slug is discovered from the live /shop HTML so the check works in
+  // both local and remote mode regardless of seeded data.
+  let slug = null;
+  try {
+    const shopHtml = await (await request("/shop")).text();
+    const m = shopHtml.match(/\/shop\/([a-z0-9-]+)/);
+    if (m) slug = m[1];
+  } catch {
+    /* slug discovery is best-effort */
+  }
+  const urls = ["/", "/shop", slug ? `/shop/${slug}` : null, "/login", "/track-order"].filter(Boolean);
+
+  for (const u of urls) {
+    try {
+      await page.goto(BASE + u, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      // LCP warnings fire a beat after load (the LCP observer resolves late).
+      await page.waitForTimeout(2_500);
+    } catch (e) {
+      issues.push(`failed to load ${u} — ${(e.message || "").split("\n")[0]}`);
+    }
+  }
+
+  await browser.close().catch(() => {});
+
+  if (issues.length > 0) {
+    for (const i of issues) {
+      failures++;
+      fail(i);
+    }
+  } else {
+    ok(`console clean on ${urls.length} core pages (${urls.join(", ")})`);
   }
 }
 
@@ -1084,6 +1215,10 @@ async function main() {
       address,
       jars: { customer: jar, admin: adminJar, staff: staffJar },
     });
+
+    // 5h. Browser console check — the script-tag / LCP / hydration warning
+    // classes on core pages that no HTTP probe can observe.
+    await checkBrowserConsole();
   } finally {
     // 6. Cleanup.
     log("cleaning up…");

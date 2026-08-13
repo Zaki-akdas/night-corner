@@ -20,6 +20,7 @@ export function Footer({ settings }: { settings: AppSettings }) {
               alt="Night Corner"
               width={172}
               height={45}
+              loading="eager"
               className="h-11 w-auto"
             />
           </div>
