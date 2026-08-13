@@ -18,7 +18,9 @@ export default function LoginPage() {
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/account";
+  // Land on the home page after login by default; ?callbackUrl= still works
+  // for deep links (e.g. /checkout redirecting back after auth).
+  const callbackUrl = params.get("callbackUrl") || "/";
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
