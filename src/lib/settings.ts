@@ -103,5 +103,16 @@ export async function updateSettings(patch: Partial<AppSettings>): Promise<AppSe
 }
 
 export function formatINR(n: number): string {
-  return "₹" + Math.round(n).toLocaleString("en-IN");
+  // Round to paise so display never contradicts the stored amount: whole
+  // rupees stay clean (₹135), fractional totals show both decimals (₹135.50)
+  // instead of being silently rounded up to ₹136.
+  const v = Math.round(n * 100) / 100;
+  const frac = v % 1 !== 0;
+  return (
+    "₹" +
+    v.toLocaleString("en-IN", {
+      minimumFractionDigits: frac ? 2 : 0,
+      maximumFractionDigits: frac ? 2 : 0,
+    })
+  );
 }
