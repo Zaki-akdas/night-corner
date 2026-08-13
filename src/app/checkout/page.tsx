@@ -123,12 +123,15 @@ export default function CheckoutPage() {
   );
 
   // Recompute quote when address or coupon changes.
+  // Debounced + race-guarded: coupon typing fires one request per pause,
+  // and a stale response can never clobber a newer one.
   useEffect(() => {
     if (step < 2 || items.length === 0) return;
     const addr = addresses.find((a) => a.id === selectedAddress);
     if (!addr?.lat || !addr?.lng) return;
-    const run = async () => {
-      setQuoting(true);
+    let cancelled = false;
+    setQuoting(true);
+    const t = setTimeout(async () => {
       try {
         const res = await fetch("/api/checkout/quote", {
           method: "POST",
@@ -140,16 +143,21 @@ export default function CheckoutPage() {
             couponCode: coupon || undefined,
           }),
         });
+        if (cancelled) return;
         const data = await res.json();
+        if (cancelled) return;
         if (!res.ok) throw new Error(data.error || "Could not calculate order");
         setQuote(data);
       } catch (e) {
-        toast.push({ type: "error", message: (e as Error).message });
+        if (!cancelled) toast.push({ type: "error", message: (e as Error).message });
       } finally {
-        setQuoting(false);
+        if (!cancelled) setQuoting(false);
       }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
     };
-    run();
   }, [step, selectedAddress, addresses, coupon, items, toast]);
 
   if (status === "loading" || !session) {

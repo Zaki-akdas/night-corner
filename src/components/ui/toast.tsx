@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Info, AlertTriangle, X } from "lucide-react";
 
@@ -12,16 +12,18 @@ export function useToast() {
   return useContext(ToastCtx);
 }
 
-export function ToastHost() {
+export function ToastHost({ children }: { children?: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const push = useCallback((t: Omit<Toast, "id">) => {
     const id = Date.now() + Math.random();
     setToasts((x) => [...x, { ...t, id }]);
     setTimeout(() => setToasts((x) => x.filter((y) => y.id !== id)), 3500);
   }, []);
-  const remove = (id: number) => setToasts((x) => x.filter((y) => y.id !== id));
+  const remove = useCallback((id: number) => setToasts((x) => x.filter((y) => y.id !== id)), []);
+  const value = useMemo(() => ({ push }), [push]);
   return (
-    <ToastCtx.Provider value={{ push }}>
+    <ToastCtx.Provider value={value}>
+      {children}
       <div className="pointer-events-none fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-[200] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2">
         <AnimatePresence>
           {toasts.map((t) => (

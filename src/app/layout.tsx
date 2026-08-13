@@ -78,19 +78,20 @@ export default async function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <Providers>
-          <CartProvider>
-            <BrandIntro />
-            <div className="relative flex min-h-screen flex-col">
-              <Header settings={settings} />
-              <main className="flex-1">
-                <RouteTransition>{children}</RouteTransition>
-              </main>
-              <Footer settings={settings} />
-            </div>
-            <FloatingWhatsApp whatsappNumber={settings.whatsappNumber} />
-            <ToastHost />
-            <PWAInit />
-          </CartProvider>
+          <ToastHost>
+            <CartProvider>
+              <BrandIntro />
+              <div className="relative flex min-h-screen flex-col">
+                <Header settings={settings} />
+                <main className="flex-1">
+                  <RouteTransition>{children}</RouteTransition>
+                </main>
+                <Footer settings={settings} />
+              </div>
+              <FloatingWhatsApp whatsappNumber={settings.whatsappNumber} />
+              <PWAInit />
+            </CartProvider>
+          </ToastHost>
         </Providers>
       </body>
     </html>
