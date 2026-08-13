@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { Suspense } from "react";
@@ -18,6 +18,11 @@ export default function LoginPage() {
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const { status } = useSession();
+  // Already signed in? Go straight to the home page — no point showing the form.
+  useEffect(() => {
+    if (status === "authenticated") router.replace("/");
+  }, [status, router]);
   // Land on the home page after login by default; ?callbackUrl= still works
   // for deep links (e.g. /checkout redirecting back after auth).
   const callbackUrl = params.get("callbackUrl") || "/";

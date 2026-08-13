@@ -1,12 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { Loader2, Moon } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { status } = useSession();
+  // Already signed in? Go straight to the home page — no point showing the form.
+  useEffect(() => {
+    if (status === "authenticated") router.replace("/");
+  }, [status, router]);
   const [form, setForm] = useState({ name: "", email: "", mobile: "", password: "", confirm: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
