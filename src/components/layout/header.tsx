@@ -15,7 +15,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/components/cart/cart-context";
 import { useOpenStatus } from "@/hooks/use-open-status";
-import { fmtCountdown } from "@/lib/hours";
+import { fmtCountdown, fmtTime } from "@/lib/hours";
 import { useRouter } from "next/navigation";
 import type { AppSettings } from "@/lib/settings";
 import { ThemeSwitcher } from "@/components/theme-switcher";
@@ -96,14 +96,15 @@ export function Header({ settings }: { settings: AppSettings }) {
       </div>
 
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 lg:gap-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2">
-          <Image src="/logo-icon.svg" alt="Night Corner" width={42} height={42} className="drop-shadow-neon" priority />
-          <div className="hidden sm:block">
-            <div className="font-display text-lg font-extrabold leading-none tracking-wider heading-gradient">
-              NIGHT CORNER
-            </div>
-            <div className="text-[10px] tracking-[0.2em] text-slate-400">YOUR NIGHT · YOUR ESSENTIALS</div>
-          </div>
+        <Link href="/" className="flex shrink-0 items-center">
+          <Image
+            src="/logo.png"
+            alt="Night Corner"
+            width={172}
+            height={45}
+            className="h-9 w-auto drop-shadow-neon sm:h-11"
+            priority
+          />
         </Link>
 
         {/* desktop search */}
@@ -265,8 +266,4 @@ function MenuLink({ href, children, onClick }: { href: string; children: React.R
       {children}
     </Link>
   );
-}
-
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
 }

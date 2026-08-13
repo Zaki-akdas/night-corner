@@ -73,12 +73,15 @@ export function AdminSidebar() {
 
 function Brand() {
   return (
-    <Link href="/admin" className="flex items-center gap-2">
-      <Image src="/logo-icon.svg" alt="Night Corner" width={36} height={36} />
-      <div>
-        <div className="font-display text-sm font-extrabold tracking-wider text-white">NIGHT CORNER</div>
-        <div className="text-[10px] tracking-widest text-neon-purple">ADMIN PANEL</div>
-      </div>
+    <Link href="/admin" className="flex flex-col gap-1">
+      <Image
+        src="/logo.png"
+        alt="Night Corner"
+        width={172}
+        height={45}
+        className="h-9 w-auto"
+      />
+      <span className="text-[10px] tracking-widest text-neon-purple">ADMIN PANEL</span>
     </Link>
   );
 }

@@ -14,14 +14,14 @@ export function Footer({ settings }: { settings: AppSettings }) {
     <footer className="mt-20 border-t border-white/10 bg-night-950/80">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 md:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2">
-            <Image src="/logo-icon.svg" alt="Night Corner" width={40} height={40} />
-            <div>
-              <div className="font-display text-lg font-extrabold tracking-wider heading-gradient">
-                NIGHT CORNER
-              </div>
-              <div className="text-[10px] tracking-[0.2em] text-slate-500">YOUR NIGHT · YOUR ESSENTIALS</div>
-            </div>
+          <div>
+            <Image
+              src="/logo.png"
+              alt="Night Corner"
+              width={172}
+              height={45}
+              className="h-11 w-auto"
+            />
           </div>
           <p className="mt-4 text-sm text-slate-400">{settings.slogan}</p>
           <div className="mt-4 flex gap-2">

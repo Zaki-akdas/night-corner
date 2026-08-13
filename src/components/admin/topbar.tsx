@@ -3,6 +3,7 @@ import { useSession, signOut } from "next-auth/react";
 import { Bell, LogOut, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ForceOpenToggle } from "./force-open-toggle";
 
 export function AdminTopbar({ user }: { user: { name: string; email: string } }) {
   const { data: session } = useSession();
@@ -14,12 +15,13 @@ export function AdminTopbar({ user }: { user: { name: string; email: string } })
       .catch(() => {});
   }, []);
   return (
-    <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-night-950/70 px-4 py-3 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-white/10 bg-night-950/70 px-4 py-3 backdrop-blur-xl sm:px-6">
       <div className="relative hidden max-w-md flex-1 sm:block">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
         <input className="input pl-9" placeholder="Search orders, products, customers..." />
       </div>
       <div className="ml-auto flex items-center gap-2">
+        <ForceOpenToggle />
         <Link href="/admin/notifications" className="relative btn-ghost h-10 w-10 rounded-xl p-0">
           <Bell className="h-5 w-5" />
           {notifCount > 0 && (
