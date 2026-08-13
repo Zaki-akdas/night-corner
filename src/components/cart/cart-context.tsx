@@ -84,18 +84,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const add = useCallback<CartCtx["add"]>(
     (item, qty = 1) => {
+      // Decide the toast wording from current state, but do the merge inside the
+      // updater so rapid adds never race. Toast must stay OUTSIDE the updater:
+      // updaters run during render, and calling setToasts there would update
+      // ToastHost while CartProvider is rendering (React setState-in-render error).
+      const existed = items.some((p) => p.productId === item.productId);
       setItems((prev) => {
         const existing = prev.find((p) => p.productId === item.productId);
         if (existing) {
-          const quantity = Math.min(item.maxStock, existing.quantity + qty);
-          toast.push({ type: "success", message: `${item.name} updated in cart` });
-          return prev.map((p) => (p.productId === item.productId ? { ...p, quantity } : p));
+          return prev.map((p) =>
+            p.productId === item.productId
+              ? { ...p, quantity: Math.min(item.maxStock, existing.quantity + qty) }
+              : p
+          );
         }
-        toast.push({ type: "success", message: `${item.name} added to cart 🌙` });
         return [...prev, { ...item, quantity: Math.min(item.maxStock, qty) }];
       });
+      toast.push({
+        type: "success",
+        message: existed ? `${item.name} updated in cart` : `${item.name} added to cart 🌙`,
+      });
     },
-    [toast]
+    [items, toast]
   );
 
   const setQty = useCallback<CartCtx["setQty"]>((productId, qty) => {
