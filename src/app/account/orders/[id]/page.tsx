@@ -7,7 +7,7 @@ import { formatINR } from "@/lib/settings";
 import { STATUS_FLOW } from "@/lib/types";
 import { statusLabel } from "@/lib/orders";
 import { OrderTimeline } from "@/components/account/order-timeline";
-import { Download, KeyRound, MapPin, ShieldCheck } from "lucide-react";
+import { KeyRound, MapPin, Printer, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +45,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <MapPin className="h-4 w-4" /> Track Live
           </Link>
           <a href={`/api/orders/${order.id}/invoice`} target="_blank" className="btn-primary">
-            <Download className="h-4 w-4" /> Download Invoice
+            <Printer className="h-4 w-4" /> Print / Save as PDF
           </a>
         </div>
       </div>

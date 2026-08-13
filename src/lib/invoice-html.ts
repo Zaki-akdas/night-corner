@@ -86,6 +86,11 @@ export function renderInvoiceHtml(
     th,td{padding:8px 6px;white-space:nowrap}
     .foot{margin-top:24px;padding-top:16px}
   }
+  /* Keep the printed sheet clean — drop the page tint and card shadow. */
+  @media print{
+    body{background:#fff;padding:0}
+    .sheet{box-shadow:none;border-radius:0;max-width:none}
+  }
   </style></head><body>
   <div class="sheet">
     <div class="brand">
@@ -123,5 +128,13 @@ export function renderInvoiceHtml(
       <div class="thanks">Thank you for ordering from Night Corner! 🌙</div>
       <div>Your Night. Your Essentials. · Open 10 PM – 6 AM · Delivered within 10 KM</div>
     </div>
-  </div></body></html>`;
+  </div>
+  <script>
+    // Auto-open the print dialog so "Download Invoice" lands on Save as PDF
+    // in one click. The dialog can be cancelled to just view the invoice.
+    window.addEventListener("load", function () {
+      setTimeout(function () { window.focus(); window.print(); }, 300);
+    });
+  </script>
+  </body></html>`;
 }
