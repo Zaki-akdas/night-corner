@@ -85,11 +85,11 @@ async function main() {
   // 4. Patch coordinates onto it (the "Add delivery location" flow).
   const patch = await req(`/api/account/addresses/${noCoordJson.id}`, {
     method: "PATCH", jar,
-    body: JSON.stringify({ lat: 23.2671, lng: 77.1262 }),
+    body: JSON.stringify({ lat: 23.264069, lng: 77.452294 }),
   });
   const patched = await patch.json().catch(() => ({}));
   ok(`patch coords ${patch.status} → lat ${patched.lat}, lng ${patched.lng}`);
-  if (patch.status !== 200 || patched.lat !== 23.2671) fail("coords should persist via PATCH");
+  if (patch.status !== 200 || patched.lat !== 23.264069) fail("coords should persist via PATCH");
 
   // 5. Place an order using that address.
   const orderRes = await req("/api/orders", {

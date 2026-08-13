@@ -20,10 +20,11 @@ if (!DB_URL) {
   process.exit(1);
 }
 
-// The corrected Lucky Bakery Bhopal pin (from the admin settings + live API).
-const SHOP = { lat: 23.2632962, lng: 77.1210341 };
-// A delivery address ~1.5 km from the shop (within the 10 km radius).
-const ADDR = { lat: 23.27, lng: 77.13, fullName: "Bhopal Test", mobile: "9876500022" };
+// The corrected Lucky Bakery Bhopal pin — Mayur Vihar, Ashoka Garden, Jhangirabad
+// (the earlier 77.121 pin was the Google search-embed viewport center, ~30 km west).
+const SHOP = { lat: 23.2635737, lng: 77.426705 };
+// A delivery address ~2.6 km from the shop (within the 20 km radius).
+const ADDR = { lat: 23.264069, lng: 77.452294, fullName: "Bhopal Test", mobile: "9876500022" };
 
 let failures = 0;
 const ok = (m) => console.log(`  \x1b[32m✓\x1b[0m ${m}`);

@@ -127,14 +127,14 @@ async function main() {
         { productId: "cmsppmvte000urwv81wwyfwrn", quantity: 2 }, // Lays ×2 = ₹40
         { productId: "cmsppnuv3002erwv85u445n1t", quantity: 3 }, // Yippee ×3 = ₹42
       ],
-      lat: 23.267,
-      lng: 77.126,
+      lat: 23.264069,
+      lng: 77.452294,
     }),
   });
   const quoteJson = await quoteRes.json().catch(() => ({}));
   ok(`quote API ${quoteRes.status}${quoteJson.subtotal !== undefined ? ` → subtotal ₹${quoteJson.subtotal}, delivery ₹${quoteJson.deliveryCharge}, total ₹${quoteJson.total}` : ""}`);
   if (quoteRes.status !== 200) fail(`quote should succeed: ${JSON.stringify(quoteJson).slice(0, 160)}`);
-  if (quoteJson.deliveryCharge === 20) ok("quote charges ₹20 delivery for the 0.85 km order");
+  if (quoteJson.deliveryCharge === 30) ok("quote charges ₹30 delivery for the ~2.6 km order (within radius)");
   else fail(`quote delivery charge mismatch (got ₹${quoteJson.deliveryCharge})`);
 
   // 4. Add the delivery address to the account
@@ -142,9 +142,9 @@ async function main() {
     method: "POST",
     jar,
     body: JSON.stringify({
-      fullName: NAME, mobile: MOBILE, house: "12, Shyamla Hills", street: "Main Road",
-      area: "Shyamla Hills", landmark: "Near Ruchi Park", city: "Bhopal",
-      state: "Madhya Pradesh", pincode: "462002", lat: 23.267, lng: 77.126,
+      fullName: NAME, mobile: MOBILE, house: "House No. 4", street: "Mayur Vihar Colony",
+      area: "Ashoka Garden", landmark: "Jagrati Her Sec School", city: "Bhopal",
+      state: "Madhya Pradesh", pincode: "462023", lat: 23.264069, lng: 77.452294,
     }),
   });
   const address = await addrRes.json().catch(() => ({}));
