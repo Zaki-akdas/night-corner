@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/prisma";
 import { CategoryGrid } from "@/components/home/category-grid";
 
 export const dynamic = "force-dynamic";

@@ -53,6 +53,18 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
           <Toggle label="Force open (override hours)" on={s.forceOpen} onClick={() => set("forceOpen", !s.forceOpen)} />
           <Toggle label="Emergency closed" on={s.emergencyClosed} onClick={() => set("emergencyClosed", !s.emergencyClosed)} />
         </div>
+        <label className="block">
+          <span className="label">Shop timezone (IANA)</span>
+          <input
+            className="input"
+            value={s.timezone}
+            onChange={(e) => set("timezone", e.target.value)}
+            placeholder="Asia/Kolkata"
+          />
+          <span className="mt-1 block text-xs text-slate-500">
+            Open/close times are evaluated in this timezone, not the server&apos;s.
+          </span>
+        </label>
       </section>
 
       {/* Shop location */}

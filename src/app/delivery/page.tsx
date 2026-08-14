@@ -145,7 +145,6 @@ export default async function DeliveryDashboardPage({
       <FilterBar
         statusCounts={statusCounts}
         paymentCounts={paymentCounts}
-        currentUserId={user.id}
         staffList={staffList}
         isAdmin={user.role === "ADMIN"}
       />

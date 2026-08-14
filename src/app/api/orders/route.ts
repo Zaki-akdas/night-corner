@@ -122,7 +122,7 @@ export async function POST(req: Request) {
           total: pricing.total,
           distanceKm: pricing.distanceKm,
           paymentMethod,
-          paymentStatus: paymentMethod === "COD" ? "PENDING" : "PENDING",
+          paymentStatus: "PENDING",
           couponCode: pricing.couponCode,
           status: "PLACED",
           eta: `${settings.deliveryTimeMins} mins`,

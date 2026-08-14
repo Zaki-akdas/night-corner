@@ -8,8 +8,6 @@ export function OrderStatusUpdater({ orderId, current }: { orderId: string; curr
   const router = useRouter();
   const [status, setStatus] = useState(current);
   const [loading, setLoading] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
-  const [showCancel, setShowCancel] = useState(false);
 
   const update = async (newStatus: string) => {
     setLoading(true);
@@ -46,7 +44,11 @@ export function OrderStatusUpdater({ orderId, current }: { orderId: string; curr
       </button>
 
       {status === "CANCELLED" && current !== "CANCELLED" && (
-        <button onClick={() => setShowCancel(true)} className="btn-ghost mt-2 w-full py-2 text-sm text-rose-300">
+        <button
+          onClick={() => update("CANCELLED")}
+          disabled={loading}
+          className="btn-ghost mt-2 w-full py-2 text-sm text-rose-300"
+        >
           Cancel & refund stock
         </button>
       )}

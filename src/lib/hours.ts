@@ -14,20 +14,103 @@ function parseHM(hm: string): { h: number; m: number } {
   return { h: h || 0, m: m || 0 };
 }
 
-function atTime(ref: Date, h: number, m: number): Date {
-  const d = new Date(ref);
-  d.setHours(h, m, 0, 0);
-  return d;
+type WallClock = { y: number; mo: number; d: number; h: number; m: number; wd: number };
+
+/**
+ * The shop's hours (openTime/closeTime/openDays/holidays) refer to the shop's
+ * local wall clock — e.g. "opens 10 PM" means 10 PM in Bhopal. Serverless
+ * runtimes (Vercel) run in UTC or other regions, so all window math is done in
+ * `settings.timezone` via Intl, never in the server's own local time.
+ */
+function safeTimezone(tz: string | undefined): string {
+  const candidate = tz && tz.trim() ? tz.trim() : "Asia/Kolkata";
+  try {
+    // Throws for unknown IANA names — fall back so a bad setting never breaks ordering.
+    new Intl.DateTimeFormat("en-US", { timeZone: candidate });
+    return candidate;
+  } catch {
+    return "Asia/Kolkata";
+  }
+}
+
+/** Wall-clock fields of `instant` in `timeZone`. */
+function wallClock(instant: Date, timeZone: string): WallClock {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    weekday: "short",
+  }).formatToParts(instant);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  const h = parseInt(get("hour"), 10);
+  const wd = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"].indexOf(
+    get("weekday").toLowerCase()
+  );
+  return {
+    y: parseInt(get("year"), 10),
+    mo: parseInt(get("month"), 10),
+    d: parseInt(get("day"), 10),
+    h: Number.isFinite(h) ? h % 24 : 0,
+    m: parseInt(get("minute"), 10),
+    wd: wd >= 0 ? wd : new Date(instant).getDay(),
+  };
+}
+
+/** UTC offset (ms) of `timeZone` at the given UTC instant. */
+function tzOffsetMs(utcMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(utcMs));
+  const get = (t: string) => parseInt(parts.find((p) => p.type === t)?.value ?? "0", 10);
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return asUtc - utcMs;
+}
+
+/** Builds a Date whose wall clock in `timeZone` is the given y-mo-d h:m. */
+function zonedDate(
+  y: number,
+  mo: number,
+  d: number,
+  h: number,
+  m: number,
+  timeZone: string
+): Date {
+  const guess = Date.UTC(y, mo - 1, d, h, m);
+  // Offset at the guessed instant, then re-evaluate at the corrected instant so
+  // DST transitions (where the offset changes at midnight) still land exactly.
+  const cand = new Date(guess - tzOffsetMs(guess, timeZone));
+  const off2 = tzOffsetMs(cand.getTime(), timeZone);
+  return new Date(guess - off2);
+}
+
+/** Shifts a wall-clock date by `days` days, returning its y/mo/d fields. */
+function shiftWallDate(
+  wc: Pick<WallClock, "y" | "mo" | "d">,
+  days: number
+): { y: number; mo: number; d: number } {
+  const d = new Date(Date.UTC(wc.y, wc.mo - 1, wc.d + days));
+  return { y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate() };
 }
 
 /**
  * Ordering window spans midnight: open at openTime (evening), closes at closeTime
  * (following morning). We treat any instant between openTime..midnight OR
- * midnight..closeTime as "open".
+ * midnight..closeTime as "open" — all in the shop's configured timezone.
  */
 export function getOpenStatus(settings: AppSettings, now = new Date()): OpenStatus {
-  const { openTime, closeTime, forceOpen, emergencyClosed, holidays, openDays } =
-    settings;
+  const { openTime, closeTime, forceOpen, emergencyClosed, holidays, openDays } = settings;
+  const tz = safeTimezone(settings.timezone);
 
   if (emergencyClosed) {
     const next = nextOpening(settings, now);
@@ -42,8 +125,10 @@ export function getOpenStatus(settings: AppSettings, now = new Date()): OpenStat
   }
 
   if (forceOpen) {
-    const close = atTime(now, parseHM(closeTime).h, parseHM(closeTime).m);
-    const closesAt = close <= now ? new Date(close.getTime() + 86400000) : close;
+    const close = parseHM(closeTime);
+    const wc = wallClock(now, tz);
+    let closesAt = zonedDate(wc.y, wc.mo, wc.d, close.h, close.m, tz);
+    if (closesAt <= now) closesAt = new Date(closesAt.getTime() + 86400000);
     return {
       isOpen: true,
       opensAt: now,
@@ -54,21 +139,23 @@ export function getOpenStatus(settings: AppSettings, now = new Date()): OpenStat
     };
   }
 
-  const isHoliday = holidays.includes(now.toISOString().slice(0, 10));
-  const openAllowedToday = openDays.includes(now.getDay());
-
+  const wc = wallClock(now, tz);
   const open = parseHM(openTime);
   const close = parseHM(closeTime);
 
+  const holidayKey = `${wc.y}-${String(wc.mo).padStart(2, "0")}-${String(wc.d).padStart(2, "0")}`;
+  const isHoliday = holidays.includes(holidayKey);
+  const openAllowedToday = openDays.includes(wc.wd);
+
   // Window that started yesterday evening and closes this morning
-  const lastNightOpen = atTime(now, open.h, open.m);
-  lastNightOpen.setDate(lastNightOpen.getDate() - 1);
-  const thisMorningClose = atTime(now, close.h, close.m);
+  const yest = shiftWallDate(wc, -1);
+  const lastNightOpen = zonedDate(yest.y, yest.mo, yest.d, open.h, open.m, tz);
+  const thisMorningClose = zonedDate(wc.y, wc.mo, wc.d, close.h, close.m, tz);
 
   // Window that opens this evening
-  const tonightOpen = atTime(now, open.h, open.m);
-  const tomorrowMorningClose = atTime(now, close.h, close.m);
-  tomorrowMorningClose.setDate(tomorrowMorningClose.getDate() + 1);
+  const tmr = shiftWallDate(wc, 1);
+  const tonightOpen = zonedDate(wc.y, wc.mo, wc.d, open.h, open.m, tz);
+  const tomorrowMorningClose = zonedDate(tmr.y, tmr.mo, tmr.d, close.h, close.m, tz);
 
   const inMorningWindow = now < thisMorningClose; // after midnight, before close
   const inEveningWindow = now >= tonightOpen; // after open, before midnight
@@ -76,9 +163,8 @@ export function getOpenStatus(settings: AppSettings, now = new Date()): OpenStat
   let isOpen = (inMorningWindow || inEveningWindow) && !isHoliday;
   // If today is a closed day but we're in the morning window, the window belongs to last night
   if (inMorningWindow) {
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (!openDays.includes(yesterday.getDay())) isOpen = false;
+    const ywd = wallClock(new Date(thisMorningClose.getTime() - 86400000), tz).wd;
+    if (!openDays.includes(ywd)) isOpen = false;
   }
   if (inEveningWindow && !openAllowedToday) isOpen = false;
 
@@ -107,17 +193,18 @@ export function getOpenStatus(settings: AppSettings, now = new Date()): OpenStat
 
 function nextOpening(settings: AppSettings, now: Date): Date {
   const { openTime, openDays } = settings;
+  const tz = safeTimezone(settings.timezone);
   const { h, m } = parseHM(openTime);
+  const wc = wallClock(now, tz);
   for (let i = 0; i < 8; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() + i);
-    d.setHours(h, m, 0, 0);
-    if (d > now && openDays.includes(d.getDay())) return d;
+    const d = shiftWallDate(wc, i);
+    const cand = zonedDate(d.y, d.mo, d.d, h, m, tz);
+    if (cand > now && openDays.includes(new Date(Date.UTC(d.y, d.mo - 1, d.d)).getUTCDay())) {
+      return cand;
+    }
   }
-  const d = new Date(now);
-  d.setDate(d.getDate() + 1);
-  d.setHours(h, m, 0, 0);
-  return d;
+  const fallback = shiftWallDate(wc, 1);
+  return zonedDate(fallback.y, fallback.mo, fallback.d, h, m, tz);
 }
 
 export function fmtTime(hm: string): string {
