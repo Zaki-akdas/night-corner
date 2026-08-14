@@ -7,6 +7,7 @@ import { formatINR } from "@/lib/settings";
 import { STATUS_FLOW } from "@/lib/types";
 import { statusLabel } from "@/lib/orders";
 import { OrderTimeline } from "@/components/account/order-timeline";
+import { DeliveryRating } from "@/components/account/delivery-rating";
 import { KeyRound, MapPin, Printer, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </span>
           </div>
         </div>
+      )}
+
+      {order.status === "DELIVERED" && (
+        <DeliveryRating orderId={order.id} orderNumber={order.orderNumber} current={order.deliveryRating} />
       )}
 
       <div className="grid gap-4 md:grid-cols-2">

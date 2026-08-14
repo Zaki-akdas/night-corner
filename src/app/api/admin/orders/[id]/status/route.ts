@@ -23,7 +23,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const newStatus = parsed.data.status;
 
   await prisma.$transaction(async (tx) => {
-    await tx.order.update({ where: { id: order.id }, data: { status: newStatus } });
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        status: newStatus,
+        ...(newStatus === "OUT_FOR_DELIVERY" && !order.outForDeliveryAt ? { outForDeliveryAt: new Date() } : {}),
+        ...(newStatus === "DELIVERED" ? { deliveredAt: new Date() } : {}),
+      },
+    });
 
     // Restore stock on cancellation/refund if not already cancelled.
     if (

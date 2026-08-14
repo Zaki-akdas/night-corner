@@ -217,6 +217,9 @@ model Order {
   deliveryPhotoUrl String? // uploaded photo evidence taken at handover
   assignedTo      String? // delivery staff userId the admin routed this order to
   assignedToName  String? // denormalized delivery staff name (survives staff edits)
+  outForDeliveryAt DateTime? // set when the order goes OUT_FOR_DELIVERY (delivery-time stats)
+  deliveredAt     DateTime? // set when the order is DELIVERED (delivery-time stats)
+  deliveryRating  Int? // 1-5 customer rating of the delivery, after handover
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   @@index([status])

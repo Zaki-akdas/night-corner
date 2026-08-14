@@ -385,6 +385,7 @@ async function sweepDynamicRoutes(ctx) {
     { pattern: "/delivery", method: "GET", label: "delivery searchParams filters (staff)", run: () => P("GET", "/delivery?payment=COD&sort=newest&assignee=me", { jar: staff }), allowed: [200] },
     { pattern: "/delivery", method: "GET", label: "delivery assignee filters (staff)", run: () => P("GET", "/delivery?assignee=unassigned", { jar: staff }), allowed: [200] },
     { pattern: "/admin/orders", method: "GET", label: "admin/orders searchParams filters (admin)", run: () => P("GET", "/admin/orders?status=CONFIRMED", { jar: admin }), allowed: [200] },
+    { pattern: "/admin/delivery-stats", method: "GET", label: "admin delivery-stats page (admin)", run: () => P("GET", "/admin/delivery-stats", { jar: admin }), allowed: [200] },
     // ── account API ──
     { pattern: "/api/account/addresses/[id]", method: "PATCH", label: "address PATCH (customer, no-op)", run: () => P("PATCH", `/api/account/addresses/${address.id}`, { jar: customer, body: { area: "Vijay Nagar" } }), allowed: [200] },
     { pattern: "/api/account/addresses/[id]", method: "DELETE", label: "address DELETE (customer, throwaway)", run: () => P("DELETE", `/api/account/addresses/${sweepAddress.id}`, { jar: customer }), allowed: [200] },
@@ -404,6 +405,7 @@ async function sweepDynamicRoutes(ctx) {
     { pattern: "/api/delivery/orders/[id]/photo", method: "POST", label: "delivery photo POST (staff, bogus → 404)", run: () => P("POST", "/api/delivery/orders/not-a-real-id/photo", { jar: staff }), allowed: [404] },
     // ── customer API ──
     { pattern: "/api/orders/[id]/invoice", method: "GET", label: "invoice GET (customer)", run: () => P("GET", `/api/orders/${orderId}/invoice`, { jar: customer }), allowed: [200] },
+    { pattern: "/api/orders/[id]/rating", method: "PATCH", label: "order rating PATCH (customer, bogus → 404)", run: () => P("PATCH", "/api/orders/not-a-real-id/rating", { jar: customer, body: { rating: 5 } }), allowed: [404] },
     // ── NextAuth catch-all (framework-handled; exercised by every login) ──
     { pattern: "/api/auth/[...nextauth]", method: "GET", label: "nextauth catch-all (providers)", run: () => P("GET", "/api/auth/providers"), allowed: [200] },
   ];

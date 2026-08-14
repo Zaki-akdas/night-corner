@@ -59,7 +59,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     where: { id: order.id },
     data: {
       status: newStatus,
-      ...(newStatus === "DELIVERED" ? { deliveryPhotoUrl: parsed.data.deliveryPhotoUrl } : {}),
+      ...(newStatus === "OUT_FOR_DELIVERY" && !order.outForDeliveryAt ? { outForDeliveryAt: new Date() } : {}),
+      ...(newStatus === "DELIVERED"
+        ? {
+            deliveryPhotoUrl: parsed.data.deliveryPhotoUrl,
+            deliveredAt: new Date(),
+          }
+        : {}),
     },
   });
 
