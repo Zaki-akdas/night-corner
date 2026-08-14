@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/admin";
 import { statusLabel } from "@/lib/orders";
 import Link from "next/link";
 import { Bike, PackageCheck, Timer, Star, TrendingUp } from "lucide-react";
+import { StatsTabs } from "./tabs";
+import { MonthlyLeaderboard } from "./monthly-leaderboard";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +25,10 @@ export default async function AdminDeliveryStatsPage() {
     orderBy: { name: "asc" },
   });
   const staffIds = staff.map((s) => s.id);
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const [orders, recent] = await Promise.all([
+  const [orders, recent, delivered6m] = await Promise.all([
     prisma.order.findMany({
       where: staffIds.length ? { assignedTo: { in: staffIds } } : { assignedTo: null },
       select: {
@@ -54,6 +58,20 @@ export default async function AdminDeliveryStatsPage() {
       },
       orderBy: { deliveredAt: "desc" },
       take: 10,
+    }),
+    prisma.order.findMany({
+      where: { status: "DELIVERED", deliveredAt: { gte: sixMonthsAgo } },
+      select: {
+        id: true,
+        orderNumber: true,
+        assignedTo: true,
+        assignedToName: true,
+        createdAt: true,
+        updatedAt: true,
+        outForDeliveryAt: true,
+        deliveredAt: true,
+        deliveryRating: true,
+      },
     }),
   ]);
 
@@ -88,18 +106,8 @@ export default async function AdminDeliveryStatsPage() {
 
   const fmtMin = (m: number | null) => (m == null ? "—" : m < 1 ? `${Math.round(m * 60)} sec` : `${Math.round(m)} min`);
 
-  return (
+  const overview = (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-display text-2xl font-extrabold text-white">Delivery Staff</h1>
-        <p className="text-sm text-slate-400">
-          {staff.length} delivery person{staff.length === 1 ? "" : "s"} · delivered {allDelivered.length} order
-          {allDelivered.length === 1 ? "" : "s"} · avg{" "}
-          {fmtMin(overallAvgMin)} per delivery
-          {allRatings.length > 0 && <> · avg rating {overallAvgRating!.toFixed(1)}/5</>}
-        </p>
-      </div>
-
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={<Bike className="h-4 w-4" />} label="Staff" value={String(staff.length)} tone="bg-neon-purple/10 text-neon-purple" />
         <Stat icon={<PackageCheck className="h-4 w-4" />} label="Orders delivered" value={String(allDelivered.length)} tone="bg-emerald-500/10 text-emerald-300" />
@@ -202,6 +210,34 @@ export default async function AdminDeliveryStatsPage() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+
+  const leaderboard = (
+    <MonthlyLeaderboard
+      staff={staff}
+      orders={delivered6m.map((o) => ({
+        ...o,
+        createdAt: o.createdAt.toISOString(),
+        updatedAt: o.updatedAt.toISOString(),
+        outForDeliveryAt: o.outForDeliveryAt?.toISOString() ?? null,
+        deliveredAt: o.deliveredAt?.toISOString() ?? null,
+      }))}
+    />
+  );
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="font-display text-2xl font-extrabold text-white">Delivery Staff</h1>
+        <p className="text-sm text-slate-400">
+          {staff.length} delivery person{staff.length === 1 ? "" : "s"} · delivered {allDelivered.length} order
+          {allDelivered.length === 1 ? "" : "s"} · avg {fmtMin(overallAvgMin)} per delivery
+          {allRatings.length > 0 && <> · avg rating {overallAvgRating!.toFixed(1)}/5</>}
+        </p>
+      </div>
+
+      <StatsTabs overview={overview} leaderboard={leaderboard} />
     </div>
   );
 }
