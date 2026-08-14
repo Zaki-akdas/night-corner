@@ -170,6 +170,9 @@ export function Header({ settings }: { settings: AppSettings }) {
                   <MenuLink href="/account/orders" onClick={() => setAccountOpen(false)}>My Orders</MenuLink>
                   <MenuLink href="/account/addresses" onClick={() => setAccountOpen(false)}>Addresses</MenuLink>
                   <MenuLink href="/account/wishlist" onClick={() => setAccountOpen(false)}>Wishlist</MenuLink>
+                  {["ADMIN", "STAFF"].includes((session.user as { role?: string }).role ?? "") && (
+                    <MenuLink href="/delivery" onClick={() => setAccountOpen(false)}>Delivery Dashboard</MenuLink>
+                  )}
                   {(session.user as { role?: string }).role === "ADMIN" && (
                     <MenuLink href="/admin" onClick={() => setAccountOpen(false)}>Admin Panel</MenuLink>
                   )}
@@ -245,9 +248,21 @@ export function Header({ settings }: { settings: AppSettings }) {
               <MapPin className="h-4 w-4" /> Delivery Area
             </Link>
             {session ? (
-              <Link href="/account" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">
-                My Account
-              </Link>
+              <>
+                <Link href="/account" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">
+                  My Account
+                </Link>
+                {["ADMIN", "STAFF"].includes((session.user as { role?: string }).role ?? "") && (
+                  <Link href="/delivery" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">
+                    Delivery Dashboard
+                  </Link>
+                )}
+                {(session.user as { role?: string }).role === "ADMIN" && (
+                  <Link href="/admin" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">
+                    Admin Panel
+                  </Link>
+                )}
+              </>
             ) : (
               <Link href="/login" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">
                 Login / Sign up

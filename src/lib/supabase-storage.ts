@@ -9,6 +9,11 @@
  */
 const BUCKET = "delivery-proofs";
 
+// Product photos reuse the same public bucket — it's the only bucket on this
+// project whose RLS policy allows uploads with the publishable key. Files are
+// namespaced under `products/` so delivery proofs and product images never
+// collide.
+
 function supabaseUrl(): string {
   const url = process.env.SUPABASE_URL;
   if (!url) throw new Error("SUPABASE_URL is not set");
@@ -43,9 +48,27 @@ export async function uploadDeliveryPhoto(
   buffer: Buffer,
   contentType: string
 ): Promise<string> {
+  return uploadPublicPhoto(BUCKET, path, buffer, contentType);
+}
+
+/** Uploads a product image into the public bucket under `products/…`. */
+export async function uploadProductPhoto(
+  path: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<string> {
+  return uploadPublicPhoto(BUCKET, `products/${path.replace(/^\/+/, "")}`, buffer, contentType);
+}
+
+async function uploadPublicPhoto(
+  bucket: string,
+  path: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<string> {
   const url = supabaseUrl();
   const safePath = path.replace(/^\/+/, "");
-  const res = await fetch(`${url}/storage/v1/object/${BUCKET}/${safePath}`, {
+  const res = await fetch(`${url}/storage/v1/object/${bucket}/${safePath}`, {
     method: "POST",
     headers: headers({ "Content-Type": contentType, "x-upsert": "false" }),
     body: new Uint8Array(buffer),
@@ -53,7 +76,7 @@ export async function uploadDeliveryPhoto(
   if (!res.ok) {
     throw new Error(`Photo upload failed (HTTP ${res.status}): ${await res.text()}`);
   }
-  return `${url}/storage/v1/object/public/${BUCKET}/${safePath}`;
+  return `${url}/storage/v1/object/public/${bucket}/${safePath}`;
 }
 
 /** Best-effort removal (used by tests / admin cleanup). */

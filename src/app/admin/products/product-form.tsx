@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { ImageUpload } from "@/components/admin/image-upload";
 import type { Category, Product } from "@prisma/client";
 
 export function ProductForm({
@@ -64,6 +65,20 @@ export function ProductForm({
   const discountPct =
     form.mrp > form.price ? Math.round(((form.mrp - form.price) / form.mrp) * 100) : 0;
 
+  const addToGallery = (url: string) => {
+    setForm((f) => {
+      let arr: string[] = [];
+      try {
+        arr = JSON.parse(f.gallery || "[]");
+      } catch {
+        arr = [];
+      }
+      if (!Array.isArray(arr)) arr = [];
+      if (arr.includes(url)) return f;
+      return { ...f, gallery: JSON.stringify([...arr, url]) };
+    });
+  };
+
   return (
     <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_320px]">
       <div className="card space-y-4 p-5">
@@ -112,15 +127,29 @@ export function ProductForm({
         )}
 
         <Field label="Hero Image URL">
-          <input className="input" value={form.image} onChange={(e) => set("image", e.target.value)} placeholder="/images/products/example/1.jpg" />
+          <div className="flex items-start gap-2">
+            <input className="input" value={form.image} onChange={(e) => set("image", e.target.value)} placeholder="/images/products/example/1.jpg" />
+            <ImageUpload
+              label="Upload photo"
+              onUpload={(url) => set("image", url)}
+              className="shrink-0"
+            />
+          </div>
         </Field>
         <Field label='Gallery (JSON array of image URLs, e.g. ["/img/1.jpg","/img/2.jpg"] )'>
-          <textarea
-            className="input min-h-[80px] font-mono text-xs"
-            value={form.gallery}
-            onChange={(e) => set("gallery", e.target.value)}
-            placeholder='["/images/products/example/1.jpg","/images/products/example/2.jpg"]'
-          />
+          <div className="flex items-start gap-2">
+            <textarea
+              className="input min-h-[80px] flex-1 font-mono text-xs"
+              value={form.gallery}
+              onChange={(e) => set("gallery", e.target.value)}
+              placeholder='["/images/products/example/1.jpg","/images/products/example/2.jpg"]'
+            />
+            <ImageUpload
+              label="Add to gallery"
+              onUpload={addToGallery}
+              className="shrink-0"
+            />
+          </div>
         </Field>
       </div>
 
