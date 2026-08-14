@@ -26,9 +26,13 @@ const SORT_OPTIONS = [
 export function FilterBar({
   statusCounts,
   paymentCounts,
+  currentUserId,
+  staffList,
 }: {
   statusCounts: Record<string, number>;
   paymentCounts: Record<string, number>;
+  currentUserId: string;
+  staffList: { id: string; name: string | null }[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -38,6 +42,7 @@ export function FilterBar({
   const payment = sp.get("payment") ?? "";
   const time = sp.get("time") ?? "";
   const sort = sp.get("sort") ?? "oldest";
+  const assignee = sp.get("assignee") ?? "";
 
   const set = (patch: Record<string, string>) => {
     const next = new URLSearchParams(sp.toString());
@@ -67,7 +72,7 @@ export function FilterBar({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <label className="block">
           <span className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Status</span>
           <select value={status} onChange={(e) => set({ status: e.target.value })} className="input py-2 text-xs">
@@ -109,6 +114,24 @@ export function FilterBar({
             {SORT_OPTIONS.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Assigned to</span>
+          <select
+            value={assignee}
+            onChange={(e) => set({ assignee: e.target.value })}
+            className="input py-2 text-xs"
+          >
+            <option value="">Everyone</option>
+            <option value="unassigned">Unassigned</option>
+            <option value="me">Me</option>
+            {staffList.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name || s.id.slice(0, 8)}
               </option>
             ))}
           </select>

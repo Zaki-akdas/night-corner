@@ -6,6 +6,7 @@ import { formatINR } from "@/lib/settings";
 import { statusLabel } from "@/lib/orders";
 import { ORDER_STATUSES } from "@/lib/types";
 import { OrderStatusUpdater } from "./status-updater";
+import { AssigneeSelect } from "./assignee-select";
 import { Download, MapPin, Phone } from "lucide-react";
 import { waMeLink } from "@/lib/whatsapp";
 
@@ -14,10 +15,17 @@ export const dynamic = "force-dynamic";
 export default async function AdminOrderDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireAdmin();
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: { items: true, user: true, address: true },
-  });
+  const [order, staff] = await Promise.all([
+    prisma.order.findUnique({
+      where: { id },
+      include: { items: true, user: true, address: true },
+    }),
+    prisma.user.findMany({
+      where: { role: "STAFF", status: "ACTIVE" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
   if (!order) notFound();
 
   const addr = order.addressSnapshot ? JSON.parse(order.addressSnapshot) : order.address;
@@ -106,6 +114,13 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
             <h2 className="mb-3 font-bold text-white">Payment</h2>
             <p className="text-sm text-slate-300">{order.paymentMethod} · {order.paymentStatus}</p>
           </div>
+
+          <AssigneeSelect
+            orderId={order.id}
+            orderNumber={order.orderNumber}
+            current={order.assignedTo}
+            staff={staff}
+          />
 
           <OrderStatusUpdater orderId={order.id} current={order.status} />
         </div>

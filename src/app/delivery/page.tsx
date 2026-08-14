@@ -8,7 +8,7 @@ import { parseAddressSnapshot, formatAddressLine } from "@/lib/address";
 import { AutoRefresh } from "@/components/delivery/auto-refresh";
 import { FilterBar } from "@/components/delivery/filter-bar";
 import { DeliveryStatusActions } from "@/components/delivery/status-actions";
-import { Bike, MapPin, Package } from "lucide-react";
+import { Bike, MapPin, Package, UserCheck, UserX } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -34,21 +34,25 @@ const VALID_SORTS = new Set(["oldest", "newest", "amount-desc", "amount-asc"]);
 export default async function DeliveryDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; payment?: string; time?: string; sort?: string }>;
+  searchParams: Promise<{ status?: string; payment?: string; time?: string; sort?: string; assignee?: string }>;
 }) {
-  await requireRole("STAFF", "ADMIN");
+  const user = await requireRole("STAFF", "ADMIN");
 
   const sp = await searchParams;
   const status = VALID_STATUSES.has(sp?.status ?? "") ? sp!.status! : "";
   const payment = VALID_PAYMENTS.has(sp?.payment ?? "") ? sp!.payment! : "";
   const time = sp?.time ?? "";
   const sort = VALID_SORTS.has(sp?.sort ?? "") ? sp!.sort! : "oldest";
+  const assignee = sp?.assignee ?? "";
 
   const where: Prisma.OrderWhereInput = { status: { in: ACTIVE_STATUSES } };
   if (status) where.status = status;
   if (payment) where.paymentMethod = payment;
   const timeMs = TIME_FILTERS[time];
   if (timeMs) where.createdAt = { gte: new Date(Date.now() - timeMs) };
+  if (assignee === "me") where.assignedTo = user.id;
+  else if (assignee === "unassigned") where.assignedTo = null;
+  else if (assignee) where.assignedTo = assignee;
 
   const orderBy: Prisma.OrderOrderByWithRelationInput =
     sort === "newest"
@@ -59,7 +63,7 @@ export default async function DeliveryDashboardPage({
           ? { total: "asc" }
           : { createdAt: "asc" };
 
-  const [orders, totalActive, statusGroups, paymentGroups] = await Promise.all([
+  const [orders, totalActive, statusGroups, paymentGroups, staffList] = await Promise.all([
     prisma.order.findMany({ where, orderBy, include: { items: true } }),
     prisma.order.count({ where: { status: { in: ACTIVE_STATUSES } } }),
     prisma.order.groupBy({
@@ -71,6 +75,11 @@ export default async function DeliveryDashboardPage({
       by: ["paymentMethod"],
       where: { status: { in: ACTIVE_STATUSES } },
       _count: { _all: true },
+    }),
+    prisma.user.findMany({
+      where: { role: "STAFF", status: "ACTIVE" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -94,7 +103,12 @@ export default async function DeliveryDashboardPage({
         <AutoRefresh />
       </div>
 
-      <FilterBar statusCounts={statusCounts} paymentCounts={paymentCounts} />
+      <FilterBar
+        statusCounts={statusCounts}
+        paymentCounts={paymentCounts}
+        currentUserId={user.id}
+        staffList={staffList}
+      />
 
       {orders.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-12 text-center">
@@ -143,6 +157,18 @@ export default async function DeliveryDashboardPage({
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-blue" />
                     <span className="line-clamp-2">{line ?? "No address on file"}</span>
                   </div>
+
+                  {o.assignedToName ? (
+                    <div className="flex items-center gap-1.5 text-xs text-neon-blue">
+                      <UserCheck className="h-3.5 w-3.5" />
+                      <span className="font-semibold">{o.assignedToName}</span>
+                      <span className="text-slate-500">· assigned</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <UserX className="h-3.5 w-3.5" /> Unassigned
+                    </div>
+                  )}
 
                   {o.eta && (
                     <div className="flex items-center gap-1.5 text-xs text-slate-400">

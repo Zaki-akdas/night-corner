@@ -382,7 +382,8 @@ async function sweepDynamicRoutes(ctx) {
     { pattern: "/delivery/[orderId]", method: "GET", label: "delivery/[orderId] (staff)", run: () => P("GET", `/delivery/${orderId}`, { jar: staff }), allowed: [200] },
     // ── searchParams server pages ──
     { pattern: "/shop", method: "GET", label: "shop searchParams filters", run: () => P("GET", "/shop?q=chips&sort=price-asc"), allowed: [200] },
-    { pattern: "/delivery", method: "GET", label: "delivery searchParams filters (staff)", run: () => P("GET", "/delivery?payment=COD&sort=newest", { jar: staff }), allowed: [200] },
+    { pattern: "/delivery", method: "GET", label: "delivery searchParams filters (staff)", run: () => P("GET", "/delivery?payment=COD&sort=newest&assignee=me", { jar: staff }), allowed: [200] },
+    { pattern: "/delivery", method: "GET", label: "delivery assignee filters (staff)", run: () => P("GET", "/delivery?assignee=unassigned", { jar: staff }), allowed: [200] },
     { pattern: "/admin/orders", method: "GET", label: "admin/orders searchParams filters (admin)", run: () => P("GET", "/admin/orders?status=CONFIRMED", { jar: admin }), allowed: [200] },
     // ── account API ──
     { pattern: "/api/account/addresses/[id]", method: "PATCH", label: "address PATCH (customer, no-op)", run: () => P("PATCH", `/api/account/addresses/${address.id}`, { jar: customer, body: { area: "Vijay Nagar" } }), allowed: [200] },
@@ -397,6 +398,7 @@ async function sweepDynamicRoutes(ctx) {
     { pattern: "/api/admin/products/[id]", method: "DELETE", label: "product DELETE (admin, throwaway)", run: () => P("DELETE", `/api/admin/products/${sweepProduct.id}`, { jar: admin }), allowed: [200] },
     { pattern: "/api/admin/users/[id]", method: "PATCH", label: "user PATCH (admin, no-op role)", run: () => P("PATCH", `/api/admin/users/${userId}`, { jar: admin, body: { role: "CUSTOMER" } }), allowed: [200] },
     { pattern: "/api/admin/orders/[id]/status", method: "PATCH", label: "admin order status PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/status", { jar: admin, body: { status: "CONFIRMED" } }), allowed: [404] },
+    { pattern: "/api/admin/orders/[id]/assign", method: "PATCH", label: "admin order assign PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/assign", { jar: admin, body: { assignedTo: null } }), allowed: [404] },
     // ── delivery API (bogus id → 404 proves params resolve + lookup runs) ──
     { pattern: "/api/delivery/orders/[id]/status", method: "PATCH", label: "delivery status PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/status", { jar: staff, body: { status: "OUT_FOR_DELIVERY" } }), allowed: [404] },
     { pattern: "/api/delivery/orders/[id]/photo", method: "POST", label: "delivery photo POST (staff, bogus → 404)", run: () => P("POST", "/api/delivery/orders/not-a-real-id/photo", { jar: staff }), allowed: [404] },

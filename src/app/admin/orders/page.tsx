@@ -49,6 +49,7 @@ export default async function AdminOrdersPage({
               <th className="p-3">Total</th>
               <th className="p-3">Payment</th>
               <th className="p-3">Status</th>
+              <th className="p-3">Assigned</th>
               <th className="p-3">Date</th>
             </tr>
           </thead>
@@ -67,6 +68,13 @@ export default async function AdminOrdersPage({
                 <td className="p-3">
                   <span className="chip bg-neon-purple/20 text-neon-purple">{statusLabel(o.status)}</span>
                 </td>
+                <td className="p-3">
+                  {o.assignedToName ? (
+                    <span className="chip bg-neon-blue/20 text-neon-blue">{o.assignedToName}</span>
+                  ) : (
+                    <span className="text-xs text-slate-500">—</span>
+                  )}
+                </td>
                 <td className="p-3 text-xs text-slate-400">
                   {new Date(o.createdAt).toLocaleString("en-IN")}
                 </td>
@@ -74,7 +82,7 @@ export default async function AdminOrdersPage({
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-10 text-center text-slate-400">No orders match your filters.</td>
+                <td colSpan={8} className="p-10 text-center text-slate-400">No orders match your filters.</td>
               </tr>
             )}
           </tbody>
