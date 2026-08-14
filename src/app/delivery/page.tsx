@@ -8,7 +8,7 @@ import { parseAddressSnapshot, formatAddressLine } from "@/lib/address";
 import { AutoRefresh } from "@/components/delivery/auto-refresh";
 import { FilterBar } from "@/components/delivery/filter-bar";
 import { DeliveryStatusActions } from "@/components/delivery/status-actions";
-import { Bike, MapPin, Package, UserCheck, UserX } from "lucide-react";
+import { Bike, Clock, MapPin, Package, UserCheck, UserX } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +63,7 @@ export default async function DeliveryDashboardPage({
           ? { total: "asc" }
           : { createdAt: "asc" };
 
-  const [orders, totalActive, statusGroups, paymentGroups, staffList] = await Promise.all([
+  const [orders, totalActive, statusGroups, paymentGroups, staffList, delivered] = await Promise.all([
     prisma.order.findMany({ where, orderBy, include: { items: true } }),
     prisma.order.count({ where: { status: { in: ACTIVE_STATUSES } } }),
     prisma.order.groupBy({
@@ -81,6 +81,12 @@ export default async function DeliveryDashboardPage({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.order.findMany({
+      where: { status: "DELIVERED" },
+      select: { createdAt: true, updatedAt: true, outForDeliveryAt: true, deliveredAt: true },
+      orderBy: { deliveredAt: "desc" },
+      take: 200,
+    }),
   ]);
 
   const statusCounts: Record<string, number> = {};
@@ -91,6 +97,25 @@ export default async function DeliveryDashboardPage({
   const filtered = orders.length;
   const hasActiveFilters = Boolean(status || payment || time);
 
+  // Shop-average delivery time (minutes) from recent delivered orders. Used to
+  // flag OUT_FOR_DELIVERY orders that have exceeded it.
+  const deliveryTimes = delivered
+    .map((d) => {
+      const from = d.outForDeliveryAt ?? d.createdAt;
+      const to = d.deliveredAt ?? d.updatedAt;
+      return (to.getTime() - from.getTime()) / 60000;
+    })
+    .filter((m) => m > 0 && Number.isFinite(m));
+  const avgDeliveryMin = deliveryTimes.length
+    ? deliveryTimes.reduce((a, b) => a + b, 0) / deliveryTimes.length
+    : null;
+
+  const lateCount = orders.filter((o) => {
+    if (o.status !== "OUT_FOR_DELIVERY" || avgDeliveryMin == null) return false;
+    const start = o.outForDeliveryAt ?? o.createdAt;
+    return (Date.now() - start.getTime()) / 60000 > avgDeliveryMin;
+  }).length;
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -98,6 +123,11 @@ export default async function DeliveryDashboardPage({
           <h1 className="font-display text-2xl font-extrabold text-white">Active Deliveries</h1>
           <p className="text-sm text-slate-400">
             {filtered} of {totalActive} order{totalActive === 1 ? "" : "s"} waiting for delivery
+            {lateCount > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1 font-semibold text-amber-300">
+                <Clock className="h-3.5 w-3.5" /> {lateCount} running late
+              </span>
+            )}
           </p>
         </div>
         <AutoRefresh />
@@ -175,6 +205,20 @@ export default async function DeliveryDashboardPage({
                       <Package className="h-3.5 w-3.5" /> ETA {o.eta}
                     </div>
                   )}
+
+                  {o.status === "OUT_FOR_DELIVERY" &&
+                    (() => {
+                      if (avgDeliveryMin == null) return null;
+                      const start = o.outForDeliveryAt ?? o.createdAt;
+                      const elapsedMin = (Date.now() - start.getTime()) / 60000;
+                      if (elapsedMin <= avgDeliveryMin) return null;
+                      return (
+                        <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-300 ring-1 ring-amber-500/30">
+                          <Clock className="h-3.5 w-3.5" />
+                          Running late · {Math.round(elapsedMin)} min out (avg {Math.round(avgDeliveryMin)} min)
+                        </div>
+                      );
+                    })()}
                 </Link>
                 <DeliveryStatusActions orderId={o.id} currentStatus={o.status} compact />
               </div>
