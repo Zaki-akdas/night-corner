@@ -102,7 +102,7 @@ export function Header({ settings }: { settings: AppSettings }) {
             alt="Night Corner"
             width={172}
             height={45}
-            className="h-8 w-auto drop-shadow-neon sm:h-11"
+            className="h-10 w-auto drop-shadow-neon sm:h-14"
             loading="eager"
           />
         </Link>

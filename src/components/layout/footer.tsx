@@ -21,7 +21,7 @@ export function Footer({ settings }: { settings: AppSettings }) {
               width={172}
               height={45}
               loading="eager"
-              className="h-11 w-auto"
+              className="h-14 w-auto"
             />
           </div>
           <p className="mt-4 text-sm text-slate-400">{settings.slogan}</p>
