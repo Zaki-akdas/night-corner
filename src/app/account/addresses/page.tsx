@@ -86,9 +86,9 @@ export default function AddressesPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl font-extrabold text-white">Saved Addresses</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
           <RefreshButton label="Refresh" onRefresh={load} />
           <button onClick={() => setEditing({})} className="btn-primary py-2 text-sm">
             <Plus className="h-4 w-4" /> Add Address
@@ -100,8 +100,8 @@ export default function AddressesPage() {
         {addresses.map((a) => (
           <div key={a.id} className="card p-4">
             <div className="flex items-start gap-3">
-              <MapPin className="mt-0.5 h-4 w-4 text-neon-purple" />
-              <div className="flex-1">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-purple" />
+              <div className="min-w-0 flex-1">
                 <div className="font-semibold text-white">
                   {a.fullName}
                   {a.isDefault && (
@@ -118,7 +118,7 @@ export default function AddressesPage() {
                 <p className="text-xs text-slate-500">{a.mobile}</p>
               </div>
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {!a.isDefault && (
                 <button onClick={() => makeDefault(a.id)} className="btn-ghost px-3 py-1.5 text-xs">
                   Set default
@@ -134,7 +134,7 @@ export default function AddressesPage() {
 
       {editing && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-night-950/80 p-4 backdrop-blur-sm">
-          <div className="card max-h-[90vh] w-full max-w-lg overflow-auto p-6">
+          <div className="card max-h-[90vh] w-full max-w-lg overflow-auto p-4 sm:p-6">
             <h2 className="mb-4 text-lg font-bold text-white">New Address</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <Inp label="Full Name*" v={editing.fullName} k="fullName" set={setEditing} />
@@ -154,7 +154,7 @@ export default function AddressesPage() {
             {editing.lat && editing.lng && (
               <p className="mt-2 text-xs text-emerald-300">📍 {editing.lat}, {editing.lng}</p>
             )}
-            <div className="mt-5 flex gap-2">
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
               <button onClick={save} className="btn-primary flex-1">Save</button>
               <button onClick={() => setEditing(null)} className="btn-ghost">Cancel</button>
             </div>

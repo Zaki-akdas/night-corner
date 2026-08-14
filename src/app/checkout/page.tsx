@@ -429,15 +429,15 @@ export default function CheckoutPage() {
           {step === 0 && (
             <div className="space-y-3">
               {items.map((i) => (
-                <div key={i.productId} className="card flex items-center gap-3 p-3">
-                  <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-night-900/60">
+              <div key={i.productId} className="card flex items-center gap-3 p-3">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-night-900/60">
                     <Image src={i.image} alt={i.name} fill className="object-contain p-1" />
                   </div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-white">{i.name}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold text-white">{i.name}</div>
                     <div className="text-xs text-slate-400">Qty {i.quantity} · {i.unit}</div>
                   </div>
-                  <div className="font-bold text-white">{formatINR(i.unitPrice * i.quantity)}</div>
+                  <div className="shrink-0 font-bold text-white">{formatINR(i.unitPrice * i.quantity)}</div>
                 </div>
               ))}
               <button onClick={() => setStep(1)} className="btn-primary w-full">
@@ -448,7 +448,7 @@ export default function CheckoutPage() {
 
           {step === 1 && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-display text-xl font-bold text-white">Delivery Address</h2>
                 <button onClick={() => setEditingAddr({})} className="btn-ghost py-2 text-sm">
                   + Add new address
@@ -468,7 +468,7 @@ export default function CheckoutPage() {
                       onChange={() => setSelectedAddress(a.id)}
                       className="mt-1 accent-purple-500"
                     />
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       <div className="font-semibold text-white">
                         {a.fullName} <span className="text-sm font-normal text-slate-400">· {a.mobile}</span>
                       </div>
@@ -511,7 +511,7 @@ export default function CheckoutPage() {
                                   />
                                 </div>
                               </div>
-                              <div className="flex gap-2">
+                              <div className="flex flex-col gap-2 sm:flex-row">
                                 <button
                                   type="button"
                                   onClick={() => patchLocation(a.id)}
@@ -573,7 +573,7 @@ export default function CheckoutPage() {
                         <span className="text-xs text-amber-400">📍 Location not yet set (required for delivery)</span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <div>
                         <label className="label text-xs">Latitude (manual)</label>
                         <input
@@ -600,7 +600,7 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <button onClick={saveAddress} disabled={savingAddr} className="btn-primary flex-1 flex items-center justify-center gap-2">
                       {savingAddr ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save Address"}
                     </button>
@@ -675,7 +675,7 @@ export default function CheckoutPage() {
                   <Tag className="h-4 w-4 text-neon-purple" />
                   <span className="font-semibold text-white">Coupon code</span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     className="input uppercase"
                     value={coupon}
@@ -688,7 +688,7 @@ export default function CheckoutPage() {
                   <p className="mt-2 text-sm text-emerald-300">Coupon {quote.couponCode} applied.</p>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <button onClick={() => setStep(1)} className="btn-ghost">Back</button>
                 <button
                   onClick={() => setStep(3)}
@@ -725,7 +725,7 @@ export default function CheckoutPage() {
                 title="Online Payment (Card / Netbanking / Wallet)"
                 desc="Secure payment via our payment gateway."
               />
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <button onClick={() => setStep(2)} className="btn-ghost">Back</button>
                 <button onClick={placeOrder} disabled={placing || open?.isOpen === false} className="btn-primary flex-1">
                   {placing ? <Loader2 className="h-5 w-5 animate-spin" /> : `Place Order · ${formatINR(quote.total)}`}
@@ -755,7 +755,7 @@ export default function CheckoutPage() {
               <p className="mt-1 text-sm text-slate-400">
                 We&apos;ve sent the details to WhatsApp and your dashboard. Track its progress live.
               </p>
-              <div className="mt-6 flex justify-center gap-3">
+              <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                 <a href={`/account/orders/${orderId}`} className="btn-primary">Track Order</a>
                 <a href={`/api/orders/${orderId}/invoice`} target="_blank" className="btn-ghost">Download Invoice</a>
               </div>
@@ -841,7 +841,7 @@ function PayOption({
       }`}
     >
       <CreditCard className={`h-5 w-5 ${active ? "text-neon-purple" : "text-slate-400"}`} />
-      <div>
+      <div className="min-w-0">
         <div className="font-semibold text-white">{title}</div>
         <div className="text-xs text-slate-400">{desc}</div>
       </div>

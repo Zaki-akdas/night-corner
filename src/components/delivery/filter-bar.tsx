@@ -74,7 +74,7 @@ export function FilterBar({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
         <label className="block">
           <span className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Status</span>
           <select value={status} onChange={(e) => set({ status: e.target.value })} className="input py-2 text-xs">

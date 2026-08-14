@@ -928,6 +928,21 @@ async function main() {
     });
     assert(!!statusActivity, "admin activity logged for status change");
 
+    // Assignment is the access grant for delivery staff. Route the test order
+    // before exercising the staff-only dashboard and delivery APIs.
+    const staffUser = await prisma.user.findUnique({
+      where: { email: STAFF_EMAIL },
+      select: { id: true },
+    });
+    assert(!!staffUser, "delivery staff account exists for assignment");
+    const assignRes = await request(`/api/admin/orders/${orderId}/assign`, {
+      method: "PATCH",
+      jar: adminJar,
+      body: JSON.stringify({ assignedTo: staffUser.id }),
+      headers: { "content-type": "application/json" },
+    });
+    assert(assignRes.status === 200, "admin assigns order to delivery staff");
+
     // 5c. Delivery dashboard: STAFF login → orders list → detail with map pin.
     log("delivery dashboard: STAFF login → orders → map pin…");
 
@@ -998,7 +1013,7 @@ async function main() {
 
     const ofdOrder = await prisma.order.findUnique({ where: { id: orderId } });
     assert(ofdOrder.status === "OUT_FOR_DELIVERY", `order status persisted (${ofdOrder.status})`);
-    assert(/^\d{4}$/.test(ofdOrder.deliveryPin || ""), "order has a 4-digit delivery PIN");
+    assert(/^\d{6}$/.test(ofdOrder.deliveryPin || ""), "order has a unique 6-digit delivery PIN");
     const ofdPin = ofdOrder.deliveryPin;
 
     const ofdNotif = await prisma.notification.findFirst({

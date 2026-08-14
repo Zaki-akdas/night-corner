@@ -18,12 +18,12 @@ export function AdminOrderFilters() {
         defaultValue={params?.get("q") ?? ""}
         onKeyDown={(e) => e.key === "Enter" && set("q", (e.target as HTMLInputElement).value)}
         placeholder="Search order number..."
-        className="input max-w-xs py-2 text-sm"
+        className="input w-full py-2 text-sm sm:max-w-xs"
       />
       <select
         defaultValue={params?.get("status") ?? ""}
         onChange={(e) => set("status", e.target.value)}
-        className="input max-w-[180px] py-2 text-sm"
+        className="input w-full py-2 text-sm sm:max-w-[180px]"
       >
         <option value="">All statuses</option>
         {ORDER_STATUSES.map((s) => (
@@ -33,7 +33,7 @@ export function AdminOrderFilters() {
       <select
         defaultValue={params?.get("payment") ?? ""}
         onChange={(e) => set("payment", e.target.value)}
-        className="input max-w-[160px] py-2 text-sm"
+        className="input w-full py-2 text-sm sm:max-w-[160px]"
       >
         <option value="">All payments</option>
         <option value="COD">COD</option>

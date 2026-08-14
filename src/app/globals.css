@@ -140,6 +140,8 @@ body {
   background: #05060f;
   color: #e6e8f5;
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -219,6 +221,23 @@ body {
   }
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* Phone ergonomics: controls stay comfortably tappable and inputs do not
+   trigger iOS zoom. Individual layouts can still opt into horizontal scroll
+   for dense data tables. */
+@media (max-width: 640px) {
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-warm,
+  .btn-whatsapp {
+    min-height: 44px;
+  }
+
+  .input {
+    font-size: 16px;
   }
 }
 

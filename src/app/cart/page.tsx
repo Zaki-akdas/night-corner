@@ -33,16 +33,16 @@ export default function CartPage() {
           {items.map((item) => {
             const lineDiscount = (item.mrp - item.unitPrice) * item.quantity;
             return (
-              <div key={item.productId} className="card flex gap-4 p-3">
-                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-night-900/60">
+              <div key={item.productId} className="card flex gap-3 p-3 sm:gap-4">
+                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-night-900/60 sm:h-24 sm:w-24">
                   <Image src={item.image} alt={item.name} fill className="object-contain p-1" />
                 </div>
-                <div className="flex flex-1 flex-col">
+                <div className="flex min-w-0 flex-1 flex-col">
                   <div className="flex items-start justify-between gap-3">
-                    <Link href={`/shop/${item.slug}`} className="font-semibold text-white hover:text-neon-blue">
+                    <Link href={`/shop/${item.slug}`} className="truncate font-semibold text-white hover:text-neon-blue">
                       {item.name}
                     </Link>
-                    <button onClick={() => remove(item.productId)} className="text-slate-400 hover:text-rose-400" aria-label="Remove">
+                    <button onClick={() => remove(item.productId)} className="shrink-0 text-slate-400 hover:text-rose-400" aria-label="Remove">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>

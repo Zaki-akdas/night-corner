@@ -95,14 +95,14 @@ export function Header({ settings }: { settings: AppSettings }) {
         )}
       </div>
 
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 lg:gap-6">
+      <div className="mx-auto flex max-w-7xl items-center gap-1 px-3 py-3 sm:gap-3 sm:px-4 lg:gap-6">
         <Link href="/" className="flex shrink-0 items-center">
           <Image
             src="/logo.png"
             alt="Night Corner"
             width={172}
             height={45}
-            className="h-9 w-auto drop-shadow-neon sm:h-11"
+            className="h-8 w-auto drop-shadow-neon sm:h-11"
             loading="eager"
           />
         </Link>

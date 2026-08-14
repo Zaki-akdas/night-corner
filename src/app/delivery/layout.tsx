@@ -7,8 +7,8 @@ export default async function DeliveryLayout({ children }: { children: React.Rea
   return (
     <div className="min-h-screen bg-night-950">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-night-950/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
-          <div className="flex items-center gap-2">
+        <div className="mx-auto flex min-h-14 max-w-5xl items-center justify-between gap-2 px-3 py-2 sm:h-14 sm:px-4">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-neon-purple to-neon-blue">
               <Bike className="h-5 w-5 text-white" />
             </span>
@@ -23,10 +23,10 @@ export default async function DeliveryLayout({ children }: { children: React.Rea
                 Admin Panel
               </Link>
             )}
-            <Link href="/" className="btn-ghost px-3 py-1.5 text-xs">
+            <Link href="/" className="btn-ghost px-2 py-1.5 text-xs sm:px-3">
               Store
             </Link>
-            <Link href="/api/auth/signout" className="btn-ghost px-3 py-1.5 text-xs text-rose-300">
+            <Link href="/api/auth/signout" className="btn-ghost px-2 py-1.5 text-xs text-rose-300 sm:px-3">
               Sign out
             </Link>
           </div>

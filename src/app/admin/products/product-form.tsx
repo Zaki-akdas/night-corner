@@ -127,17 +127,17 @@ export function ProductForm({
         )}
 
         <Field label="Hero Image URL">
-          <div className="flex items-start gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start">
             <input className="input" value={form.image} onChange={(e) => set("image", e.target.value)} placeholder="/images/products/example/1.jpg" />
             <ImageUpload
               label="Upload photo"
               onUpload={(url) => set("image", url)}
-              className="shrink-0"
+              className="shrink-0 self-start"
             />
           </div>
         </Field>
         <Field label='Gallery (JSON array of image URLs, e.g. ["/img/1.jpg","/img/2.jpg"] )'>
-          <div className="flex items-start gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start">
             <textarea
               className="input min-h-[80px] flex-1 font-mono text-xs"
               value={form.gallery}
@@ -147,7 +147,7 @@ export function ProductForm({
             <ImageUpload
               label="Add to gallery"
               onUpload={addToGallery}
-              className="shrink-0"
+              className="shrink-0 self-start"
             />
           </div>
         </Field>

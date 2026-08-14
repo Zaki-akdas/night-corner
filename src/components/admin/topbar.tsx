@@ -15,7 +15,7 @@ export function AdminTopbar({ user }: { user: { name: string; email: string } })
       .catch(() => {});
   }, []);
   return (
-    <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-white/10 bg-night-950/70 px-4 py-3 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-white/10 bg-night-950/70 py-3 pl-28 pr-3 backdrop-blur-xl sm:px-6">
       <div className="relative hidden max-w-md flex-1 sm:block">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
         <input className="input pl-9" placeholder="Search orders, products, customers..." />

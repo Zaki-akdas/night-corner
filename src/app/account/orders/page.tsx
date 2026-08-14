@@ -18,7 +18,7 @@ export default async function OrdersPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl font-extrabold text-white">My Orders</h1>
         <RefreshButton label="Refresh" />
       </div>
@@ -39,7 +39,7 @@ export default async function OrdersPage() {
                     {new Date(o.createdAt).toLocaleString("en-IN")} · {o.items.length} items · {o.paymentMethod}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center justify-end gap-3">
                   <span className="chip bg-neon-purple/20 text-neon-purple">{statusLabel(o.status)}</span>
                   <span className="font-bold text-white">{formatINR(o.total)}</span>
                   <a
