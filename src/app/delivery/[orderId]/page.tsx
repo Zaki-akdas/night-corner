@@ -42,7 +42,7 @@ export default async function DeliveryOrderPage({
     include: { items: true, user: true },
   });
   if (!order) notFound();
-  if (user.role !== "ADMIN" && order.assignedTo !== user.id) notFound();
+  if (user.role !== "ADMIN" && order.assignedTo !== user.id && order.assignedTo !== null) notFound();
 
   const settings = await getSettings();
   const addr = parseAddressSnapshot(order.addressSnapshot);

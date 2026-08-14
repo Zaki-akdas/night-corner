@@ -46,10 +46,6 @@ export default async function DeliveryDashboardPage({
   const assignee = sp?.assignee ?? "";
 
   const where: Prisma.OrderWhereInput = { status: { in: ACTIVE_STATUSES } };
-  // An assignment is the staff member's access grant. Administrators retain
-  // the full operational view, while a rider can never browse another
-  // rider's work or the unassigned queue.
-  if (user.role !== "ADMIN") where.assignedTo = user.id;
   if (status) where.status = status;
   if (payment) where.paymentMethod = payment;
   const timeMs = TIME_FILTERS[time];
@@ -58,6 +54,13 @@ export default async function DeliveryDashboardPage({
     if (assignee === "me") where.assignedTo = user.id;
     else if (assignee === "unassigned") where.assignedTo = null;
     else if (assignee) where.assignedTo = assignee;
+  } else {
+    // Staff see the unassigned pool plus their own assigned orders, so
+    // fresh PLACED orders always appear on the dashboard. A rider still
+    // can't browse another rider's assigned work.
+    if (assignee === "me") where.assignedTo = user.id;
+    else if (assignee === "unassigned") where.assignedTo = null;
+    else where.OR = [{ assignedTo: user.id }, { assignedTo: null }];
   }
 
   const orderBy: Prisma.OrderOrderByWithRelationInput =
@@ -71,7 +74,7 @@ export default async function DeliveryDashboardPage({
 
   const [orders, totalActive, statusGroups, paymentGroups, staffList, delivered] = await Promise.all([
     prisma.order.findMany({ where, orderBy, include: { items: true } }),
-    prisma.order.count({ where: { status: { in: ACTIVE_STATUSES }, ...(user.role === "ADMIN" ? {} : { assignedTo: user.id }) } }),
+    prisma.order.count({ where: { status: { in: ACTIVE_STATUSES }, ...(user.role === "ADMIN" ? {} : { OR: [{ assignedTo: user.id }, { assignedTo: null }] }) } }),
     prisma.order.groupBy({
       by: ["status"],
       where: { status: { in: ACTIVE_STATUSES } },

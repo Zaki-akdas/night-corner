@@ -45,7 +45,7 @@ export default function StaffLoginPage() {
             <Bike className="h-7 w-7 text-white" />
           </span>
           <h1 className="font-display text-2xl font-extrabold text-white">Delivery staff portal</h1>
-          <p className="mt-1 text-sm text-slate-400">Approved staff can access only their assigned orders.</p>
+          <p className="mt-1 text-sm text-slate-400">Approved staff can pick up unassigned orders and manage their assigned deliveries.</p>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
