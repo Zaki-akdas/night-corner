@@ -4,11 +4,14 @@
 import sharp from 'sharp';
 import fs from 'fs';
 
-const SRC = 'public/logo1.png';
-const OUT = 'public/logo.png';
+// Usage: node scripts/clean-logo.mjs <source.png> [output.png]
+// Cleans a Night Corner badge PNG with a baked-in checkerboard background
+// into a transparent, trimmed, web-ready logo.
+const SRC = process.argv[2] || 'public/logo1.png';
+const OUT = process.argv[3] || 'public/logo.png';
 const SIZE = 512;
 
-const img = sharp(SRC);
+const img = sharp(SRC).ensureAlpha(); // normalize RGB/RGBA -> RGBA
 const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
 const w = info.width, h = info.height;
 const at = (x, y) => (y * w + x) * 4;
