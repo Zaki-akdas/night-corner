@@ -80,15 +80,29 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 const KEY = "app_settings";
 
+// Settings are polled by the open-status endpoint from every open page every
+// ~30s. On serverless that turns into a DB read per poll; during a traffic
+// burst it visibly contributes to connection-pool pressure. Cache per
+// instance for a short TTL (safe: each Vercel instance has its own memory)
+// and bust on admin edits so force-open/close applies immediately.
+const CACHE_TTL_MS = 10_000;
+let cache: { at: number; value: AppSettings } | null = null;
+
 export async function getSettings(): Promise<AppSettings> {
+  const now = Date.now();
+  if (cache && now - cache.at < CACHE_TTL_MS) return cache.value;
   const row = await prisma.settings.findUnique({ where: { key: KEY } });
+  let value: AppSettings;
   if (!row) {
     await prisma.settings.create({
       data: { key: KEY, value: JSON.stringify(DEFAULT_SETTINGS) },
     });
-    return DEFAULT_SETTINGS;
+    value = DEFAULT_SETTINGS;
+  } else {
+    value = { ...DEFAULT_SETTINGS, ...(JSON.parse(row.value) as Partial<AppSettings>) };
   }
-  return { ...DEFAULT_SETTINGS, ...(JSON.parse(row.value) as Partial<AppSettings>) };
+  cache = { at: now, value };
+  return value;
 }
 
 export async function updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
@@ -99,6 +113,7 @@ export async function updateSettings(patch: Partial<AppSettings>): Promise<AppSe
     update: { value: JSON.stringify(next) },
     create: { key: KEY, value: JSON.stringify(next) },
   });
+  cache = { at: Date.now(), value: next };
   return next;
 }
 

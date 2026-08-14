@@ -1152,6 +1152,11 @@ async function main() {
           distanceKm: 1,
           eta: "35 mins",
           deliveryPin: "1234",
+          // The staff dashboard only shows orders assigned to the rider
+          // (assignment is the access grant), so assign the filter-test
+          // orders to the staff account being exercised.
+          assignedTo: staffUser.id,
+          assignedToName: "Delivery Staff",
           addressSnapshot: JSON.stringify({ fullName: "Test User", mobile: "+919999999999", city: "Indore", pincode: "452010" }),
           items: {
             create: {
