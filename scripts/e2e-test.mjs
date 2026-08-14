@@ -386,10 +386,13 @@ async function sweepDynamicRoutes(ctx) {
     { pattern: "/delivery", method: "GET", label: "delivery assignee filters (staff)", run: () => P("GET", "/delivery?assignee=unassigned", { jar: staff }), allowed: [200] },
     { pattern: "/admin/orders", method: "GET", label: "admin/orders searchParams filters (admin)", run: () => P("GET", "/admin/orders?status=CONFIRMED", { jar: admin }), allowed: [200] },
     { pattern: "/admin/delivery-stats", method: "GET", label: "admin delivery-stats page (admin)", run: () => P("GET", "/admin/delivery-stats", { jar: admin }), allowed: [200] },
+    { pattern: "/admin/pool-status", method: "GET", label: "admin pool-status page (admin)", run: () => P("GET", "/admin/pool-status", { jar: admin }), allowed: [200] },
+    { pattern: "/admin/pool-status", method: "GET", label: "admin pool-status page (anon → redirect)", run: () => P("GET", "/admin/pool-status"), allowed: [307, 302] },
     // ── account API ──
     { pattern: "/api/account/addresses/[id]", method: "PATCH", label: "address PATCH (customer, no-op)", run: () => P("PATCH", `/api/account/addresses/${address.id}`, { jar: customer, body: { area: "Vijay Nagar" } }), allowed: [200] },
     { pattern: "/api/account/addresses/[id]", method: "DELETE", label: "address DELETE (customer, throwaway)", run: () => P("DELETE", `/api/account/addresses/${sweepAddress.id}`, { jar: customer }), allowed: [200] },
     // ── admin API ──
+    { pattern: "/api/admin/pool-status", method: "GET", label: "pool-status API (admin)", run: () => P("GET", "/api/admin/pool-status", { jar: admin }), allowed: [200] },
     { pattern: "/api/admin/categories/[id]", method: "PATCH", label: "category PATCH (admin)", run: () => P("PATCH", `/api/admin/categories/${category.id}`, { jar: admin, body: { name: "Test Category" } }), allowed: [200] },
     { pattern: "/api/admin/categories/[id]", method: "DELETE", label: "category DELETE (admin, throwaway)", run: () => P("DELETE", `/api/admin/categories/${sweepCategory.id}`, { jar: admin }), allowed: [200] },
     { pattern: "/api/admin/coupons/[id]", method: "PATCH", label: "coupon PATCH (admin, throwaway)", run: () => P("PATCH", `/api/admin/coupons/${sweepCoupon.id}`, { jar: admin, body: { active: false } }), allowed: [200] },

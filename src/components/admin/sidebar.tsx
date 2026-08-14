@@ -18,6 +18,7 @@ import {
   Settings,
   UserCog,
   ScrollText,
+  Database,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -36,6 +37,7 @@ const LINKS = [
   { href: "/admin/notifications", icon: Bell, label: "Notifications" },
   { href: "/admin/reviews", icon: Star, label: "Reviews" },
   { href: "/admin/settings", icon: Settings, label: "Settings" },
+  { href: "/admin/pool-status", icon: Database, label: "DB Connections" },
   { href: "/admin/users", icon: UserCog, label: "Admin Users" },
   { href: "/admin/activity", icon: ScrollText, label: "Activity Logs" },
 ];

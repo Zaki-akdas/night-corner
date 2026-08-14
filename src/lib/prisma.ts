@@ -45,3 +45,57 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+// ── Pool-health instrumentation ────────────────────────────────────────────
+// Capture connection/pool failures (EMAXCONN, timeouts, unreachable host) so
+// the admin pool-status view can surface capacity pressure before a full
+// outage. Kept in-memory per instance plus a throttled best-effort write to
+// the activity log so errors survive across serverless instances.
+
+export type PoolErrorEvent = {
+  at: number;
+  message: string;
+};
+
+const POOL_ERROR_BUFFER_MAX = 50;
+const POOL_ERROR_LOG_THROTTLE_MS = 30_000; // at most one activity-log row per 30s
+const POOL_ERROR_RE =
+  /EMAXCONN|max client connections|Can't reach database server|connection (pool|limit)|too many (open )?connections|ECONNREFUSED|connect ETIMEDOUT/i;
+
+export const recentPoolErrors: PoolErrorEvent[] = [];
+let lastPoolErrorLogged = 0;
+
+function recordPoolError(message: string) {
+  const now = Date.now();
+  const clean = message.slice(0, 500);
+  recentPoolErrors.push({ at: now, message: clean });
+  if (recentPoolErrors.length > POOL_ERROR_BUFFER_MAX) recentPoolErrors.shift();
+
+  // Persist sparingly — during an actual outage the DB may be unreachable,
+  // and a flood of writes would make things worse. Best-effort only.
+  if (now - lastPoolErrorLogged >= POOL_ERROR_LOG_THROTTLE_MS) {
+    lastPoolErrorLogged = now;
+    prisma.activityLog
+      .create({
+        data: {
+          action: "DB_POOL_ERROR",
+          entity: "database",
+          meta: JSON.stringify({ message: clean, source: "prisma" }),
+        },
+      })
+      .catch(() => {
+        /* DB may be down — the in-memory buffer still has it */
+      });
+  }
+}
+
+// Prisma only emits error log events when the client is constructed with the
+// "error" log level — the config above always includes it. The `$on` overload
+// is inferred from the static log config, so cast through a wider interface.
+try {
+  (prisma as unknown as { $on(event: "error", cb: (e: { message?: string }) => void): void }).$on("error", (e) => {
+    if (e?.message && POOL_ERROR_RE.test(e.message)) recordPoolError(e.message);
+  });
+} catch {
+  /* listener is best-effort */
+}
