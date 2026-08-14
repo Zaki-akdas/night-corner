@@ -16,7 +16,8 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 const schema = z.object({
   status: z.enum(["OUT_FOR_DELIVERY", "DELIVERED"]),
   deliveryPhotoUrl: z.string().url().optional(),
-  deliveryPin: z.string().optional(),
+  // Four digits remains valid for orders created before the six-digit upgrade.
+  deliveryPin: z.string().regex(/^\d{4,6}$/).optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -31,6 +32,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  if (staff.role !== "ADMIN" && order.assignedTo !== staff.id) {
+    return NextResponse.json({ error: "This order is not assigned to you" }, { status: 403 });
+  }
 
   if (!(ALLOWED_TRANSITIONS[newStatus] ?? []).includes(order.status)) {
     return NextResponse.json(

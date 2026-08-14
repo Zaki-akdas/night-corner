@@ -13,6 +13,9 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         identifier: { label: "Email or Mobile", type: "text" },
         password: { label: "Password", type: "password" },
+        // Only submitted by the private staff sign-in page. Keeping this check
+        // on the server prevents a customer account being used as a rider.
+        staffOnly: { label: "Staff only", type: "hidden" },
       },
       async authorize(credentials) {
         if (!credentials?.identifier || !credentials.password) return null;
@@ -27,6 +30,7 @@ export const authOptions: NextAuthOptions = {
         });
         if (!user || !user.passwordHash) return null;
         if (user.status === "DISABLED") return null;
+        if (credentials.staffOnly === "true" && !["STAFF", "ADMIN"].includes(user.role)) return null;
         const ok = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!ok) return null;
         return {

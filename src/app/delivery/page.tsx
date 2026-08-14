@@ -46,13 +46,19 @@ export default async function DeliveryDashboardPage({
   const assignee = sp?.assignee ?? "";
 
   const where: Prisma.OrderWhereInput = { status: { in: ACTIVE_STATUSES } };
+  // An assignment is the staff member's access grant. Administrators retain
+  // the full operational view, while a rider can never browse another
+  // rider's work or the unassigned queue.
+  if (user.role !== "ADMIN") where.assignedTo = user.id;
   if (status) where.status = status;
   if (payment) where.paymentMethod = payment;
   const timeMs = TIME_FILTERS[time];
   if (timeMs) where.createdAt = { gte: new Date(Date.now() - timeMs) };
-  if (assignee === "me") where.assignedTo = user.id;
-  else if (assignee === "unassigned") where.assignedTo = null;
-  else if (assignee) where.assignedTo = assignee;
+  if (user.role === "ADMIN") {
+    if (assignee === "me") where.assignedTo = user.id;
+    else if (assignee === "unassigned") where.assignedTo = null;
+    else if (assignee) where.assignedTo = assignee;
+  }
 
   const orderBy: Prisma.OrderOrderByWithRelationInput =
     sort === "newest"
@@ -65,7 +71,7 @@ export default async function DeliveryDashboardPage({
 
   const [orders, totalActive, statusGroups, paymentGroups, staffList, delivered] = await Promise.all([
     prisma.order.findMany({ where, orderBy, include: { items: true } }),
-    prisma.order.count({ where: { status: { in: ACTIVE_STATUSES } } }),
+    prisma.order.count({ where: { status: { in: ACTIVE_STATUSES }, ...(user.role === "ADMIN" ? {} : { assignedTo: user.id }) } }),
     prisma.order.groupBy({
       by: ["status"],
       where: { status: { in: ACTIVE_STATUSES } },
@@ -138,6 +144,7 @@ export default async function DeliveryDashboardPage({
         paymentCounts={paymentCounts}
         currentUserId={user.id}
         staffList={staffList}
+        isAdmin={user.role === "ADMIN"}
       />
 
       {orders.length === 0 ? (

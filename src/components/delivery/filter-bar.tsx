@@ -28,11 +28,13 @@ export function FilterBar({
   paymentCounts,
   currentUserId,
   staffList,
+  isAdmin,
 }: {
   statusCounts: Record<string, number>;
   paymentCounts: Record<string, number>;
   currentUserId: string;
   staffList: { id: string; name: string | null }[];
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -54,7 +56,7 @@ export function FilterBar({
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
-  const active = status || payment || time || sort !== "oldest";
+  const active = status || payment || time || sort !== "oldest" || (isAdmin && assignee);
 
   return (
     <div className="card space-y-3 p-4">
@@ -119,7 +121,7 @@ export function FilterBar({
           </select>
         </label>
 
-        <label className="block">
+        {isAdmin && <label className="block">
           <span className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Assigned to</span>
           <select
             value={assignee}
@@ -135,7 +137,7 @@ export function FilterBar({
               </option>
             ))}
           </select>
-        </label>
+        </label>}
       </div>
     </div>
   );

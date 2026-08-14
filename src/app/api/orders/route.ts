@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { randomInt } from "crypto";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
@@ -21,6 +23,21 @@ const schema = z.object({
   paymentMethod: z.enum(["COD", "UPI", "ONLINE"]),
   couponCode: z.string().optional(),
 });
+
+/**
+ * Generates a customer-friendly delivery PIN using Node's cryptographic random
+ * source. We also check every existing order so a PIN is never intentionally
+ * reused. Six digits gives the customer a simple code while greatly reducing
+ * accidental guesses compared with the former four-digit value.
+ */
+async function generateUniqueDeliveryPin(tx: Prisma.TransactionClient): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const pin = String(randomInt(100_000, 1_000_000));
+    const existing = await tx.order.findFirst({ where: { deliveryPin: pin }, select: { id: true } });
+    if (!existing) return pin;
+  }
+  throw new Error("Could not generate a unique delivery PIN. Please try again.");
+}
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -90,6 +107,8 @@ export async function POST(req: Request) {
           throw new Error(`Only ${p.stock} of ${p.name} available`);
       }
 
+      const deliveryPin = await generateUniqueDeliveryPin(tx);
+
       const order = await tx.order.create({
         data: {
           orderNumber,
@@ -107,8 +126,8 @@ export async function POST(req: Request) {
           couponCode: pricing.couponCode,
           status: "PLACED",
           eta: `${settings.deliveryTimeMins} mins`,
-          // 4-digit proof-of-delivery PIN the customer shares with the delivery person.
-          deliveryPin: String(Math.floor(1000 + Math.random() * 9000)),
+          // Unique proof-of-delivery PIN the customer shares at handover.
+          deliveryPin,
           items: {
             create: pricing.lines.map((l) => {
               const p = productMap.get(l.productId)!;
@@ -226,5 +245,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
 }
-
-

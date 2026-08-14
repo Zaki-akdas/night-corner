@@ -18,7 +18,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   let assignedToName: string | null = null;
   if (parsed.data.assignedTo) {
     const staff = await prisma.user.findUnique({ where: { id: parsed.data.assignedTo } });
-    if (!staff || !["STAFF", "ADMIN"].includes(staff.role)) {
+    if (!staff || staff.role !== "STAFF" || staff.status !== "ACTIVE") {
       return NextResponse.json({ error: "Not a delivery staff account" }, { status: 400 });
     }
     assignedToName = staff.name || staff.email || staff.mobile || null;

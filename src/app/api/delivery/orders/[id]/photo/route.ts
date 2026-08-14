@@ -8,10 +8,13 @@ const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", 
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await requireRole("STAFF", "ADMIN");
+  const staff = await requireRole("STAFF", "ADMIN");
 
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  if (staff.role !== "ADMIN" && order.assignedTo !== staff.id) {
+    return NextResponse.json({ error: "This order is not assigned to you" }, { status: 403 });
+  }
 
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");

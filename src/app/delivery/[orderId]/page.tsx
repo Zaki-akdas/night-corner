@@ -35,13 +35,14 @@ export default async function DeliveryOrderPage({
   params: Promise<{ orderId: string }>;
 }) {
   const { orderId } = await params;
-  await requireRole("STAFF", "ADMIN");
+  const user = await requireRole("STAFF", "ADMIN");
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: { items: true, user: true },
   });
   if (!order) notFound();
+  if (user.role !== "ADMIN" && order.assignedTo !== user.id) notFound();
 
   const settings = await getSettings();
   const addr = parseAddressSnapshot(order.addressSnapshot);

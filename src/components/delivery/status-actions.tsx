@@ -9,7 +9,7 @@ const PRE_DELIVERY = ["PLACED", "CONFIRMED", "PREPARING", "PACKED"];
 /**
  * Delivery status buttons. Renders nothing when the order isn't actionable.
  * Marking an order Delivered requires proof of delivery: a photo upload and the
- * 4-digit PIN the customer gives at handover. The compact variant (dashboard
+ * delivery PIN the customer gives at handover. The compact variant (dashboard
  * cards) keeps the proof-of-delivery form collapsed behind a toggle.
  */
 export function DeliveryStatusActions({
@@ -45,8 +45,8 @@ export function DeliveryStatusActions({
           setError("Please attach a delivery photo");
           return;
         }
-        if (pin.trim().length !== 4 || !/^\d{4}$/.test(pin.trim())) {
-          setError("Enter the 4-digit PIN from the customer");
+        if (!/^\d{4,6}$/.test(pin.trim())) {
+          setError("Enter the delivery PIN from the customer");
           return;
         }
         const form = new FormData();
@@ -128,7 +128,7 @@ export function DeliveryStatusActions({
             <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
               <p className="text-xs text-slate-300">
                 Collect proof before confirming: a <span className="font-semibold text-white">delivery photo</span> and
-                the customer&apos;s <span className="font-semibold text-white">4-digit PIN</span>.
+                the customer&apos;s <span className="font-semibold text-white">delivery PIN</span>.
               </p>
 
               {/* Photo */}
@@ -169,11 +169,11 @@ export function DeliveryStatusActions({
                 <KeyRound className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
                 <input
                   value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   inputMode="numeric"
-                  pattern="[0-9]{4}"
-                  maxLength={4}
-                  placeholder="Customer PIN (4 digits)"
+                  pattern="[0-9]{4,6}"
+                  maxLength={6}
+                  placeholder="Customer delivery PIN"
                   className="input py-2 pl-8 text-sm tracking-[0.3em]"
                 />
               </div>

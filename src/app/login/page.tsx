@@ -94,11 +94,9 @@ function LoginInner() {
           New to Night Corner?{" "}
           <Link href="/signup" className="text-neon-purple hover:underline">Create account</Link>
         </p>
-        <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
-          <div className="mb-1 font-semibold text-slate-300">Demo accounts</div>
-          Admin: admin@nightcorner.in / admin123<br />
-          Customer: rahul@example.com / customer123
-        </div>
+        <p className="mt-6 text-center text-xs text-slate-500">
+          Delivery team? <Link href="/staff/login" className="text-neon-blue hover:underline">Use the staff portal</Link>
+        </p>
       </div>
     </div>
   );
