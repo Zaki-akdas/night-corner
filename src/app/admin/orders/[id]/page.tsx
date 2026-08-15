@@ -45,6 +45,11 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         <div>
           <h1 className="font-display text-2xl font-extrabold text-white">{order.orderNumber}</h1>
           <p className="text-sm text-slate-400">{new Date(order.createdAt).toLocaleString("en-IN")}</p>
+          {order.deliveryPin && !["CANCELLED", "REFUNDED"].includes(order.status) && (
+            <p className="mt-2 inline-flex items-center gap-2 rounded-full border border-warm-yellow/30 bg-warm-yellow/10 px-3 py-1 text-sm font-semibold text-warm-yellow">
+              🔑 Delivery PIN: {order.deliveryPin}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <a href={`/api/orders/${order.id}/invoice`} target="_blank" className="btn-ghost py-2 text-sm">

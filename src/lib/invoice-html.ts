@@ -71,6 +71,9 @@ export function renderInvoiceHtml(
   .totals table{width:320px}.totals td{border:none;padding:6px 10px}
   .totals .grand{font-size:16px;font-weight:700;color:#6d28d9;border-top:2px solid #6d28d9}
   .status{display:inline-block;padding:4px 10px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:600;text-transform:uppercase}
+  .pinbox{display:flex;align-items:center;gap:14px;background:#fffbeb;border:1px dashed #f59e0b;border-radius:12px;padding:14px 18px;margin-bottom:20px;color:#92400e;font-size:13px}
+  .pinbox strong{font-size:26px;letter-spacing:6px;color:#b45309;font-variant-numeric:tabular-nums}
+  .pinbox .pin-note{color:#a16207;font-size:12px}
   .foot{margin-top:32px;padding-top:20px;border-top:1px dashed #cbd5e1;text-align:center;color:#64748b;font-size:12px}
   .foot .thanks{font-size:15px;color:#0f1224;font-weight:600;margin-bottom:4px}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -114,6 +117,9 @@ export function renderInvoiceHtml(
         <p><strong>${escape(order.user.name ?? "Customer")}</strong></p>${addressLines}
       </div>
     </div>
+    ${order.deliveryPin && !["CANCELLED", "REFUNDED"].includes(order.status)
+      ? `<div class="pinbox"><span>🔑 Delivery PIN</span><strong>${escape(order.deliveryPin)}</strong><span class="pin-note">Share with your delivery person at handover</span></div>`
+      : ""}
     <div class="table-wrap"><table><thead><tr><th>#</th><th>Item</th><th>SKU</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
     <div class="totals"><table><tbody>
