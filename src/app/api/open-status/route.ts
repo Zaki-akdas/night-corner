@@ -16,5 +16,9 @@ export async function GET() {
     secondsUntilChange: status.secondsUntilChange,
     openTime: settings.openTime,
     closeTime: settings.closeTime,
+    // Vercel injects the deployment's git commit SHA at build/runtime. The
+    // preview e2e's URL-resolve step compares it against the PR head so a
+    // stale alias/comment can never route the suite to an older build.
+    sha: process.env.VERCEL_GIT_COMMIT_SHA || null,
   });
 }

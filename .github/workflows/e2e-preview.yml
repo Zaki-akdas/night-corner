@@ -36,6 +36,10 @@ jobs:
               core.setFailed("No pull request context — this workflow needs a PR-linked Vercel preview. A manual dispatch without a PR has no preview to test against; refusing to fall back to local e2e mode against the shared database.");
               return;
             }
+            // For pull_request events context.sha is the MERGE commit
+            // (refs/pull/N/merge); Vercel deploys the head commit, so compare
+            // against pr.head.sha.
+            const headSha = pr.head?.sha || context.sha;
             // Vercel's GitHub integration reports via a PR comment (the
             // "Vercel Preview Comments" app) containing the deployment link:
             //   [Preview](https://<project>-git-<branch>-<team>.vercel.app)
@@ -58,9 +62,18 @@ jobs:
                     signal: AbortSignal.timeout(10_000),
                   });
                   if (res.ok) {
-                    core.setOutput("preview_url", url);
-                    core.info(`preview URL resolved: ${url}`);
-                    return;
+                    // The comment's link is the branch alias, which only points
+                    // at the newest READY deployment — but between a push and
+                    // the alias switch it can still serve the PREVIOUS build.
+                    // Only trust it when the running build is the PR head:
+                    // open-status exposes the deployment's git commit SHA.
+                    const body = await res.json().catch(() => null);
+                    if (body?.sha && body.sha === headSha) {
+                      core.setOutput("preview_url", url);
+                      core.info(`preview URL resolved: ${url} (build ${body.sha.slice(0, 7)} matches PR head ${headSha.slice(0, 7)})`);
+                      return;
+                    }
+                      core.info(`candidate ${url} serves ${body?.sha ? `build ${body.sha.slice(0, 7)}` : "an unknown build"} — waiting for the PR-head deployment (${headSha.slice(0, 7)})`);
                   }
                 } catch { /* not ready yet — keep polling */ }
               }
