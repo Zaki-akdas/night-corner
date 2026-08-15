@@ -5,7 +5,14 @@ import { requireAdmin, logActivity, notifyAdmin } from "@/lib/admin";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/types";
 import { broadcastOrderUpdate } from "@/lib/realtime";
 
-const schema = z.object({ status: z.enum(ORDER_STATUSES as [OrderStatus, ...OrderStatus[]]) });
+const schema = z.object({
+  status: z.enum(ORDER_STATUSES as [OrderStatus, ...OrderStatus[]]),
+  // Proof of delivery — same requirements as the delivery-app route: a photo
+  // and the customer's 4-digit PIN are both required to mark an order
+  // DELIVERED. (6-digit PINs remain valid for legacy orders.)
+  deliveryPhotoUrl: z.string().url().optional(),
+  deliveryPin: z.string().regex(/^\d{4,6}$/).optional(),
+});
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,13 +29,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const newStatus = parsed.data.status;
 
+  // Proof of delivery: a photo and the customer's 4-digit PIN are required
+  // before DELIVERED — matches the delivery-app route so the admin panel can't
+  // bypass the handover verification.
+  if (newStatus === "DELIVERED") {
+    if (!parsed.data.deliveryPhotoUrl || !parsed.data.deliveryPin) {
+      return NextResponse.json({ error: "Delivery photo and customer PIN are required" }, { status: 400 });
+    }
+    if (!order.deliveryPin || parsed.data.deliveryPin.trim() !== order.deliveryPin) {
+      return NextResponse.json({ error: "Incorrect delivery PIN — ask the customer" }, { status: 400 });
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.order.update({
       where: { id: order.id },
       data: {
         status: newStatus,
         ...(newStatus === "OUT_FOR_DELIVERY" && !order.outForDeliveryAt ? { outForDeliveryAt: new Date() } : {}),
-        ...(newStatus === "DELIVERED" ? { deliveredAt: new Date() } : {}),
+        ...(newStatus === "DELIVERED"
+          ? { deliveredAt: new Date(), deliveryPhotoUrl: parsed.data.deliveryPhotoUrl }
+          : {}),
       },
     });
 
@@ -50,7 +71,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           data: {
             productId: item.productId,
             change: item.quantity,
-            reason: newStatus === "REFUNDED" ? "ADJUSTMENT" : "ADJUSTMENT",
+            reason: "ADJUSTMENT",
             orderId: order.id,
             userId: admin.id,
             note: `Stock restored on ${newStatus}`,

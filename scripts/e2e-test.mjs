@@ -1271,6 +1271,37 @@ async function main() {
       const afterRes = await request("/delivery", { jar: staffJar });
       const afterHtml = await afterRes.text();
       assert(!afterHtml.includes(orderJson.orderNumber), "delivered order leaves the delivery dashboard");
+      // Admin proof-of-delivery: the admin status API enforces the same rule
+      // as the delivery app — DELIVERED requires a photo + the customer's PIN
+      // (regression: the admin route used to bypass it, letting orders be
+      // marked delivered without any proof).
+      const adminJar2 = new CookieJar();
+      const adminCsrf2 = await request("/api/auth/csrf", { jar: adminJar2 });
+      const { csrfToken: adminCsrfToken2 } = await adminCsrf2.json();
+      await request("/api/auth/callback/credentials", {
+        method: "POST",
+        jar: adminJar2,
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ csrfToken: adminCsrfToken2, identifier: ADMIN_EMAIL, password: ADMIN_PASSWORD }).toString(),
+      });
+      const adminNoProof = await request(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        jar: adminJar2,
+        body: JSON.stringify({ status: "DELIVERED" }),
+      });
+      assert(adminNoProof.status === 400, "admin DELIVERED rejected without photo and PIN");
+      const adminWrongPin = await request(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        jar: adminJar2,
+        body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: "https://example.com/proof.jpg", deliveryPin: "0000" }),
+      });
+      assert(adminWrongPin.status === 400, "admin DELIVERED rejected with a wrong PIN");
+      const adminProof = await request(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        jar: adminJar2,
+        body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: "https://example.com/proof.jpg", deliveryPin: ofdPin }),
+      });
+      assert(adminProof.status === 200, "admin DELIVERED accepted with photo + correct PIN");
     }
 
     // 5e2. Dashboard filters: status / payment / time / sort.
