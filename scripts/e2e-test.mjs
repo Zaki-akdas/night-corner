@@ -834,7 +834,7 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
           const prefix = `${base}/storage/v1/object/public/delivery-proofs/`;
           if (url.startsWith(prefix)) {
             const p = url.slice(prefix.length);
-            const key = dotEnv.SUPABASE_PUBLISHABLE_KEY || dotEnv.SUPABASE_ANON_KEY;
+            const key = dotEnv.SUPABASE_SERVICE_ROLE_KEY || dotEnv.SUPABASE_PUBLISHABLE_KEY || dotEnv.SUPABASE_ANON_KEY;
             const hdrs = key ? { apikey: key, Authorization: `Bearer ${key}` } : {};
             await fetch(`${base}/storage/v1/object/delivery-proofs/${p}`, { method: "DELETE", headers: hdrs }).catch(() => {});
           }
@@ -861,7 +861,7 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const dotEnv = existsSync(path.join(ROOT, ".env")) ? loadDotEnv(path.join(ROOT, ".env")) : {};
+  const dotEnv = { ...(existsSync(path.join(ROOT, ".env")) ? loadDotEnv(path.join(ROOT, ".env")) : {}), ...process.env };
   const TEST_URL =
     process.env.E2E_TEST_DB_URL ||
     (dotEnv.DIRECT_URL
@@ -1743,7 +1743,7 @@ async function main() {
         const prefix = `${base}/storage/v1/object/public/delivery-proofs/`;
         if (uploadedPhotoUrl.startsWith(prefix)) {
           const path = uploadedPhotoUrl.slice(prefix.length);
-          const key = dotEnv.SUPABASE_PUBLISHABLE_KEY || dotEnv.SUPABASE_ANON_KEY;
+          const key = dotEnv.SUPABASE_SERVICE_ROLE_KEY || dotEnv.SUPABASE_PUBLISHABLE_KEY || dotEnv.SUPABASE_ANON_KEY;
           const headers = key ? { apikey: key, Authorization: `Bearer ${key}` } : {};
           const del = await fetch(`${base}/storage/v1/object/delivery-proofs/${path}`, {
             method: "DELETE",
@@ -1792,4 +1792,3 @@ main()
     console.error(`\n\x1b[31mE2E ERROR: ${e.message}\x1b[0m`);
     process.exit(1);
   });
-

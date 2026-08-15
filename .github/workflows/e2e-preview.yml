@@ -77,4 +77,9 @@ jobs:
           # (the preview app shares production public). The schema is pinned in
           # the URL so pooled connections can't leak another client's search_path.
           E2E_TEST_DB_URL: ${{ secrets.E2E_TEST_DB_URL }}
+          # Supabase storage — lets the staff photo-upload success path run
+          # (and clean up after itself) instead of skipping.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run test:e2e
