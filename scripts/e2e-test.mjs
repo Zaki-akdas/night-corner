@@ -10,12 +10,13 @@
  * Two modes:
  *   local  (default)          Boots the app on :3100 against an isolated
  *                             `test_e2e` Postgres schema and drops it after.
- *   remote (E2E_BASE_URL set) Runs against an existing deployment (e.g. a
- *                             Vercel preview build) that already points at a
- *                             test schema via its own DATABASE_URL. Uses
- *                             E2E_TEST_DB_URL (GitHub secret) for seeding and
- *                             verification; cleans up only test data so the
- *                             schema stays available for the next build.
+ *   remote (E2E_BASE_URL set) Runs against an existing deployment (production
+ *                             or a Vercel preview build) that reads/writes its
+ *                             own schema via its own DATABASE_URL. Seeds and
+ *                             verifies against E2E_TEST_DB_URL (GitHub
+ *                             secret), using the schema its URL pins
+ *                             (default: public) — never the connection's
+ *                             implicit search_path. Cleans up only test data.
  *
  * Also runs a dynamic-route sweep: every [param] page and API route is
  * discovered from src/app and probed over HTTP. A regression in the Next 16
@@ -605,12 +606,14 @@ async function main() {
       : "");
   if (!TEST_URL) throw new Error("no test database: set E2E_TEST_DB_URL or DIRECT_URL in .env");
 
-  // Remote mode runs against a live deployment, whose app reads/writes the
-  // database's default schema (public). Derive that URL by dropping the
-  // throwaway ?schema= parameter used for local runs.
-  const PROD_URL = TEST_URL.replace(/([?&])schema=[^&#]*/i, "$1").replace(/[?&]$/, "");
+  // The schema the deployment under test reads/writes. Local runs append the
+  // throwaway ?schema=test_e2e themselves; remote runs use whatever schema
+  // E2E_TEST_DB_URL pins — the deployment's own schema (public for this
+  // project). Never strip the parameter: a pinned schema is intentional and
+  // stripping it would seed the wrong schema on a deployment that uses one.
+  const TEST_SCHEMA = (TEST_URL.match(/[?&]schema=([^&#]*)/i) || [])[1] || "public";
 
-  const CHECK_SCHEMA = REMOTE_MODE ? "public" : SCHEMA;
+  const CHECK_SCHEMA = REMOTE_MODE ? TEST_SCHEMA : SCHEMA;
 
   log(REMOTE_MODE ? `remote mode → ${BASE}` : `local mode → ${BASE}`);
   log(`test database: ${TEST_URL.replace(/:[^:@/]+@/, ":***@")}`);
@@ -650,7 +653,14 @@ async function main() {
   log("seeding test data…");
   // Remote mode seeds/verifies/cleans up against the deployment's own schema
   // (production public); local mode uses the throwaway test_e2e schema.
-  const DB_URL = REMOTE_MODE ? PROD_URL : TEST_URL;
+  // Remote runs always pin the schema explicitly: Supavisor pooled
+  // connections can carry a leftover search_path from another client's
+  // session (e.g. ?schema=preview_e2e), so the implicit default is not
+  // reliable. Local runs already append their own ?schema=test_e2e.
+  let DB_URL = TEST_URL;
+  if (REMOTE_MODE && !TEST_URL.match(/[?&]schema=/i)) {
+    DB_URL = TEST_URL + (TEST_URL.includes("?") ? "&" : "?") + "schema=" + TEST_SCHEMA;
+  }
   process.env.DATABASE_URL = DB_URL;
   process.env.DIRECT_URL = DB_URL;
   const prisma = new PrismaClient();

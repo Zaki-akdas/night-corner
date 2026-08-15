@@ -5,8 +5,8 @@ on:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
-# Only one E2E run at a time — all preview deployments share the preview_e2e
-# test schema, so concurrent runs would race on the seed data.
+# Only one E2E run at a time — all preview deployments share the same
+# database (production public), so concurrent runs would race on the seed data.
 concurrency:
   group: e2e-preview
   cancel-in-progress: false
@@ -37,8 +37,8 @@ jobs:
         env:
           # The preview deployment URL (https://<project>-<hash>-<user>.vercel.app)
           E2E_BASE_URL: ${{ steps.vercel.outputs.preview_url }}
-          # Direct Postgres connection to the preview_e2e test schema. This is
-          # the same schema the preview deployment reads/writes via its own
-          # preview-scoped DATABASE_URL.
+          # Pooled Postgres connection to the schema the deployment reads/writes
+          # (the preview app shares production public). The schema is pinned in
+          # the URL so pooled connections can't leak another client's search_path.
           E2E_TEST_DB_URL: ${{ secrets.E2E_TEST_DB_URL }}
         run: npm run test:e2e
