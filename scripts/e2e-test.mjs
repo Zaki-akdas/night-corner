@@ -499,7 +499,7 @@ function findSystemChrome() {
   return candidates.find((p) => existsSync(p));
 }
 
-async function checkBrowserConsole() {
+async function checkBrowserConsole({ prisma, userId, adminJar } = {}) {
   log("browser console check (script-tag / LCP / hydration / uncaught errors)…");
   const { chromium } = require("playwright-core");
   const execPath = findSystemChrome();
@@ -579,6 +579,83 @@ async function checkBrowserConsole() {
     } catch (e) {
       issues.push(`failed to load ${u} — ${(e.message || "").split("\n")[0]}`);
     }
+  }
+
+
+  // Admin UI guard — the OrderStatusUpdater must block a DELIVERED save
+  // without photo + PIN client-side (no PATCH leaves the browser), the same
+  // rule the delivery app enforces — not merely reject it server-side.
+  let uiOrder = null;
+  try {
+    const seedProduct = await prisma.product.findFirst();
+    uiOrder = await prisma.order.create({
+      data: {
+        orderNumber: `NC-UI-${Date.now()}`,
+        status: "PLACED",
+        paymentMethod: "COD",
+        paymentStatus: "PENDING",
+        subtotal: 100,
+        deliveryCharge: 20,
+        tax: 0,
+        total: 120,
+        distanceKm: 1,
+        deliveryPin: "9876",
+        userId,
+        items: {
+          create: {
+            productId: seedProduct.id,
+            name: seedProduct.name,
+            sku: seedProduct.sku,
+            image: seedProduct.image,
+            unitPrice: 100,
+            quantity: 1,
+            lineTotal: 100,
+          },
+        },
+      },
+    });
+
+    await context.addCookies(
+      [...adminJar.cookies.entries()].map(([name, value]) => ({
+        name,
+        value,
+        domain: new URL(BASE).hostname,
+        path: "/",
+        httpOnly: true,
+        secure: BASE.startsWith("https://"),
+        sameSite: "Lax",
+      }))
+    );
+
+    const patchCalls = [];
+    page.on("request", (req) => {
+      if (req.method() === "PATCH" && /\/api\/admin\/orders\/[^/]+\/status/.test(req.url())) patchCalls.push(req.url());
+    });
+
+    await page.goto(`${BASE}/admin/orders/${uiOrder.id}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    // Let the admin session fetch and the client component hydrate.
+    await page.waitForTimeout(1_500);
+    const statusSelect = page.locator("select").filter({ has: page.locator('option[value="DELIVERED"]') });
+    await statusSelect.selectOption("DELIVERED");
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: "Save Status" }).click();
+    const err = page.getByText(/A delivery photo URL and the customer's 4-digit PIN are required/);
+    let errVisible = false;
+    try {
+      await err.waitFor({ state: "visible", timeout: 5_000 });
+      errVisible = true;
+    } catch { /* not visible */ }
+    if (errVisible && patchCalls.length === 0) {
+      ok("admin UI blocks DELIVERED save without photo + PIN (client-side, no PATCH sent)");
+    } else {
+      failures++;
+      fail(`admin UI did not block the proof-less DELIVERED save (error visible: ${errVisible}, PATCH calls: ${patchCalls.length})`);
+    }
+  } catch (e) {
+    failures++;
+    fail(`admin UI DELIVERED-guard check failed — ${(e.message || "").split("\n")[0]}`);
+  } finally {
+    if (uiOrder) await prisma.order.delete({ where: { id: uiOrder.id } }).catch(() => {});
   }
 
   await browser.close().catch(() => {});
@@ -915,6 +992,16 @@ async function main() {
     const notif = await prisma.notification.findFirst({ where: { userId, type: "ORDER" }, orderBy: { createdAt: "desc" } });
     assert(!!notif && /Order confirmed/.test(notif.title), "customer notification persisted");
     assert(notif && notif.body.includes(order.deliveryPin), "placed notification includes the delivery PIN");
+
+    // The customer's invoice must carry the delivery PIN too — fetch it through
+    // the live route with the customer session and verify the PIN box renders
+    // the exact 4-digit PIN (regression guard for the PIN-on-invoice feature).
+    const invRes = await request(`/api/orders/${orderId}/invoice`, { jar });
+    const invHtml = await invRes.text();
+    assert(invRes.status === 200 && /text\/html/.test(invRes.headers.get("content-type") || ""), "invoice GET returns HTML (200)");
+    const pinBox = invHtml.match(/class="pinbox"[\s\S]*?<strong>([^<]+)<\/strong>/);
+    assert(!!pinBox, "invoice renders the delivery-PIN box");
+    assert(!!pinBox && pinBox[1].trim() === order.deliveryPin, `invoice PIN box shows the exact PIN (${order.deliveryPin})`);
 
     // 5a. Messenger: the webhook ingests page events and links the PSID to the
     // order's mobile (demo mode — no app secret set, so no signature required).
@@ -1444,7 +1531,7 @@ async function main() {
 
     // 5h. Browser console check — the script-tag / LCP / hydration warning
     // classes on core pages that no HTTP probe can observe.
-    await checkBrowserConsole();
+    await checkBrowserConsole({ prisma, userId, adminJar });
   } finally {
     // 6. Cleanup.
     log("cleaning up…");
