@@ -26,18 +26,47 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Wait for Vercel preview deployment
+      - name: Resolve Vercel preview URL
         id: vercel
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.2
+        uses: actions/github-script@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 600
-
-      - name: Guard — require a preview URL
-        if: ${{ steps.vercel.outputs.preview_url == '' }}
-        run: |
-          echo "::error::No Vercel preview URL found. This workflow needs a PR-linked preview deployment; a manual dispatch without a PR has no preview to test against. Refusing to run the e2e — with an empty URL it would fall back to local mode and hit the shared production database."
-          exit 1
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setFailed("No pull request context — this workflow needs a PR-linked Vercel preview. A manual dispatch without a PR has no preview to test against; refusing to fall back to local e2e mode against the shared database.");
+              return;
+            }
+            // Vercel's GitHub integration reports via a PR comment (the
+            // "Vercel Preview Comments" app) containing the deployment link:
+            //   [Preview](https://<project>-git-<branch>-<team>.vercel.app)
+            const re = /\[Preview\]\(https:\/\/([^)\s]+\.vercel\.app)\)/;
+            const deadline = Date.now() + 600_000;
+            while (Date.now() < deadline) {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                per_page: 100,
+              });
+              for (const c of comments) {
+                if (!/vercel/i.test(c.body || "")) continue;
+                const m = (c.body || "").match(re);
+                if (!m) continue;
+                const url = `https://${m[1]}`;
+                try {
+                  const res = await fetch(`${url}/api/open-status`, {
+                    signal: AbortSignal.timeout(10_000),
+                  });
+                  if (res.ok) {
+                    core.setOutput("preview_url", url);
+                    core.info(`preview URL resolved: ${url}`);
+                    return;
+                  }
+                } catch { /* not ready yet — keep polling */ }
+              }
+              await new Promise((r) => setTimeout(r, 5_000));
+            }
+            core.setFailed("Timed out waiting for the Vercel preview deployment (no Ready preview URL in the PR comments within 10 minutes).");
 
       - name: Run E2E against the preview
         if: ${{ steps.vercel.outputs.preview_url != '' }}
