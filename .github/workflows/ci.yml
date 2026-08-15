@@ -1,4 +1,5 @@
 name: CI
+# [smoke] preview-e2e verification branch — workflow-only comment
 
 on:
   push:
