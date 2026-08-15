@@ -499,7 +499,7 @@ function findSystemChrome() {
   return candidates.find((p) => existsSync(p));
 }
 
-async function checkBrowserConsole({ prisma, userId, adminJar } = {}) {
+async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv } = {}) {
   log("browser console check (script-tag / LCP / hydration / uncaught errors)…");
   const { chromium } = require("playwright-core");
   const execPath = findSystemChrome();
@@ -651,11 +651,197 @@ async function checkBrowserConsole({ prisma, userId, adminJar } = {}) {
       failures++;
       fail(`admin UI did not block the proof-less DELIVERED save (error visible: ${errVisible}, PATCH calls: ${patchCalls.length})`);
     }
+
+  // Positive path: the same UI must accept a DELIVERED save once photo +
+  // correct PIN are provided — the PATCH goes out, returns 200, and the
+  // order becomes DELIVERED in the database (end-to-end).
+  const respPromise = page.waitForResponse(
+    (res) => res.request().method() === "PATCH" && /\/api\/admin\/orders\/[^/]+\/status/.test(res.url()),
+    { timeout: 10_000 }
+  );
+  await page.locator('input[placeholder="Delivery photo URL"]').fill("https://example.com/proof.jpg");
+  await page.locator("input[placeholder=\"Customer's delivery PIN\"]").fill("9876");
+  await page.getByRole("button", { name: "Save Status" }).click();
+  let respOk = false;
+  try {
+    const resp = await respPromise;
+    respOk = resp.status() === 200;
+  } catch { /* no PATCH response within timeout */ }
+  const after = await prisma.order.findUnique({ where: { id: uiOrder.id } });
+  const dbOk =
+    !!after &&
+    after.status === "DELIVERED" &&
+    after.deliveryPhotoUrl === "https://example.com/proof.jpg" &&
+    !!after.deliveredAt;
+  if (respOk && dbOk) {
+    ok("admin UI DELIVERED save succeeds with photo + correct PIN (PATCH 200, order DELIVERED)");
+  } else {
+    failures++;
+    fail(`admin UI DELIVERED success path failed (PATCH ok: ${respOk}, DB delivered: ${dbOk})`);
+  }
+
   } catch (e) {
     failures++;
     fail(`admin UI DELIVERED-guard check failed — ${(e.message || "").split("\n")[0]}`);
   } finally {
-    if (uiOrder) await prisma.order.delete({ where: { id: uiOrder.id } }).catch(() => {});
+    if (uiOrder) {
+      await prisma.activityLog.deleteMany({ where: { entityId: uiOrder.id } }).catch(() => {});
+      await prisma.order.delete({ where: { id: uiOrder.id } }).catch(() => {});
+    }
+  }
+
+
+  // Staff UI guard — the rider's Mark Delivered flow must block a proof-less
+  // DELIVERED save client-side too (no photo upload, no status PATCH), the
+  // same rule the admin panel enforces.
+  let staffOrder = null;
+  let staffProbeUrl = "";
+  let uiPhotoUrl = "";
+  try {
+    const staffUser = await prisma.user.findUnique({ where: { email: STAFF_EMAIL } });
+    const staffProduct = await prisma.product.findFirst();
+    staffOrder = await prisma.order.create({
+      data: {
+        orderNumber: `NC-STAFF-${Date.now()}`,
+        status: "OUT_FOR_DELIVERY",
+        outForDeliveryAt: new Date(),
+        paymentMethod: "COD",
+        paymentStatus: "PENDING",
+        subtotal: 100,
+        deliveryCharge: 20,
+        tax: 0,
+        total: 120,
+        distanceKm: 1,
+        deliveryPin: "9876",
+        assignedTo: staffUser.id,
+        assignedToName: "Delivery Staff",
+        userId,
+        items: {
+          create: {
+            productId: staffProduct.id,
+            name: staffProduct.name,
+            sku: staffProduct.sku,
+            image: staffProduct.image,
+            unitPrice: 100,
+            quantity: 1,
+            lineTotal: 100,
+          },
+        },
+      },
+    });
+
+    await context.addCookies(
+      [...staffJar.cookies.entries()].map(([name, value]) => ({
+        name,
+        value,
+        domain: new URL(BASE).hostname,
+        path: "/",
+        httpOnly: true,
+        secure: BASE.startsWith("https://"),
+        sameSite: "Lax",
+      }))
+    );
+
+    const staffCalls = [];
+    page.on("request", (req) => {
+      if (/\/api\/delivery\/orders\/[^/]+\/(photo|status)/.test(req.url())) staffCalls.push(`${req.method()} ${req.url()}`);
+    });
+
+    await page.goto(`${BASE}/delivery/${staffOrder.id}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await page.waitForTimeout(1_500);
+    await page.getByRole("button", { name: "Confirm Delivery" }).click();
+    const staffErr = page.getByText(/Please attach a delivery photo/);
+    let staffBlocked = false;
+    try {
+      await staffErr.waitFor({ state: "visible", timeout: 5_000 });
+      staffBlocked = true;
+    } catch { /* not visible */ }
+    if (staffBlocked && staffCalls.length === 0) {
+      ok("staff UI blocks proof-less DELIVERED (client-side, no photo upload / status PATCH)");
+    } else {
+      failures++;
+      fail(`staff UI did not block the proof-less DELIVERED save (error visible: ${staffBlocked}, requests: ${staffCalls.length})`);
+    }
+
+    // Positive path — storage-dependent, mirroring the API flow's skip rule:
+    // probe the upload endpoint first; when storage is ready the rider UI
+    // must complete the full DELIVERED save once a photo + correct PIN are
+    // provided (real upload through the file input, then the status PATCH).
+    const tinyPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64"
+    );
+    const probeForm = new FormData();
+    probeForm.append("file", new Blob([tinyPng], { type: "image/png" }), "proof.png");
+    const probeRes = await request(`/api/delivery/orders/${staffOrder.id}/photo`, {
+      method: "POST",
+      jar: staffJar,
+      body: probeForm,
+    });
+    const probeJson = probeRes.status === 200 ? await probeRes.json() : null;
+    const staffStorageReady = probeRes.status === 200 && probeJson?.url?.includes("delivery-proofs");
+    if (probeJson?.url && probeJson.url.startsWith(`${String(dotEnv.SUPABASE_URL || "").replace(/\/$/, "")}/storage/v1/object/public/delivery-proofs/`)) {
+      staffProbeUrl = probeJson.url;
+    }
+    if (!staffStorageReady) {
+      log("⚠️ delivery-proofs storage not configured (probe HTTP " + probeRes.status + ") — skipping the staff UI success-path assertions. Create the Supabase bucket to enable them.");
+    } else {
+      await page.locator('input[type="file"]').setInputFiles({
+        name: "proof.png",
+        mimeType: "image/png",
+        buffer: tinyPng,
+      });
+      await page.locator('input[placeholder="Customer delivery PIN"]').fill("9876");
+      const staffRespPromise = page.waitForResponse(
+        (res) => res.request().method() === "PATCH" && /\/api\/delivery\/orders\/[^/]+\/status/.test(res.url()),
+        { timeout: 15_000 }
+      );
+      await page.getByRole("button", { name: "Confirm Delivery" }).click();
+      let staffRespOk = false;
+      try {
+        const staffResp = await staffRespPromise;
+        staffRespOk = staffResp.status() === 200;
+      } catch { /* no status PATCH within timeout */ }
+      const staffAfter = await prisma.order.findUnique({ where: { id: staffOrder.id } });
+      const staffDbOk =
+        !!staffAfter &&
+        staffAfter.status === "DELIVERED" &&
+        !!staffAfter.deliveryPhotoUrl &&
+        staffAfter.deliveryPhotoUrl.includes("delivery-proofs") &&
+        !!staffAfter.deliveredAt;
+      if (staffRespOk && staffDbOk) {
+        ok("staff UI DELIVERED save succeeds with photo + correct PIN (upload + PATCH 200, order DELIVERED)");
+      } else {
+        failures++;
+        fail(`staff UI DELIVERED success path failed (PATCH ok: ${staffRespOk}, DB delivered: ${staffDbOk})`);
+      }
+      uiPhotoUrl = staffAfter?.deliveryPhotoUrl || "";
+    }
+
+  } catch (e) {
+    failures++;
+    fail(`staff UI DELIVERED-guard check failed — ${(e.message || "").split("\n")[0]}`);
+  } finally {
+    if (staffOrder) {
+      await prisma.activityLog.deleteMany({ where: { entityId: staffOrder.id } }).catch(() => {});
+      await prisma.order.delete({ where: { id: staffOrder.id } }).catch(() => {});
+
+    // Remove photos uploaded during the success-path probe / UI save.
+    for (const url of [staffProbeUrl, uiPhotoUrl]) {
+      if (url) {
+        try {
+          const base = String(dotEnv.SUPABASE_URL || "").replace(/\/$/, "");
+          const prefix = `${base}/storage/v1/object/public/delivery-proofs/`;
+          if (url.startsWith(prefix)) {
+            const p = url.slice(prefix.length);
+            const key = dotEnv.SUPABASE_PUBLISHABLE_KEY || dotEnv.SUPABASE_ANON_KEY;
+            const hdrs = key ? { apikey: key, Authorization: `Bearer ${key}` } : {};
+            await fetch(`${base}/storage/v1/object/delivery-proofs/${p}`, { method: "DELETE", headers: hdrs }).catch(() => {});
+          }
+        } catch { /* non-critical */ }
+      }
+    }
+    }
   }
 
   await browser.close().catch(() => {});
@@ -1531,7 +1717,7 @@ async function main() {
 
     // 5h. Browser console check — the script-tag / LCP / hydration warning
     // classes on core pages that no HTTP probe can observe.
-    await checkBrowserConsole({ prisma, userId, adminJar });
+    await checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv });
   } finally {
     // 6. Cleanup.
     log("cleaning up…");
