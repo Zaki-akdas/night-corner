@@ -18,6 +18,16 @@
  *
  * Future schema changes are just new committed migrations — they ship with the
  * next deployment, no manual steps.
+ *
+ * Connectivity: the Prisma CLI uses `DIRECT_URL` for migration commands, but
+ * on Supabase the direct host (`db.<ref>.supabase.co:5432`) is IP-restricted
+ * and unreachable from Vercel builds. The runtime client uses the transaction
+ * pooler (`DATABASE_URL`, port 6543) which *is* reachable but can't run
+ * migrations (session-level advisory locks don't survive transaction pooling).
+ * So the CLI is pointed at Supabase's session-mode pooler — the same pooler
+ * host on port 5432 — which is reachable and migration-safe. Local databases
+ * (e.g. docker) are unaffected: their URL host isn't a Supabase pooler, so it
+ * is used as-is.
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
@@ -36,12 +46,40 @@ if (existsSync(".env")) {
 
 const BASELINE = "20260815000000_init";
 
+/** Supabase pooler: 6543 = transaction mode, 5432 = session mode. */
+function sessionModeUrl(url) {
+  try {
+    const u = new URL(url);
+    if (/\.pooler\.supabase\.com$/.test(u.hostname) && u.port === "6543") {
+      u.port = "5432";
+      return u.toString();
+    }
+  } catch {
+    /* malformed URL — let Prisma report it */
+  }
+  return url;
+}
+
 function run(cmd) {
   const r = spawnSync(cmd, { shell: true, stdio: "inherit" });
   if (r.status !== 0) throw new Error(`command failed (exit ${r.status}): ${cmd}`);
 }
 
 async function main() {
+  // CLI migration commands must reach the database directly. On Supabase the
+  // direct host is IP-restricted from Vercel, so route them through the
+  // session-mode pooler instead.
+  const sessionUrl = process.env.DATABASE_URL
+    ? sessionModeUrl(process.env.DATABASE_URL)
+    : process.env.DIRECT_URL;
+  if (sessionUrl && sessionUrl !== process.env.DIRECT_URL) {
+    console.warn(
+      "[prebuild] routing Prisma CLI through the session-mode pooler " +
+        `(${new URL(sessionUrl).host}) for migration commands.`
+    );
+    process.env.DIRECT_URL = sessionUrl;
+  }
+
   const prisma = new PrismaClient();
   let needsBaseline = false;
   try {
