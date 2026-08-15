@@ -889,6 +889,47 @@ async function main() {
 
     // 5a. Messenger: the webhook ingests page events and links the PSID to the
     // order's mobile (demo mode — no app secret set, so no signature required).
+    // Degraded mode: when the MessengerIdentity table is missing (a database
+    // that hasn't run the messenger migration), the webhook must acknowledge
+    // Meta gracefully with linking disabled instead of erroring.
+    log("messenger webhook: degraded mode (table missing)…");
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "${SCHEMA}"."MessengerIdentity"`);
+    const degradedRes = await request("/api/webhooks/messenger", {
+      method: "POST",
+      body: JSON.stringify({
+        object: "page",
+        entry: [
+          {
+            id: "1",
+            messaging: [
+              {
+                sender: { id: "PSID_DEGRADED" },
+                recipient: { id: "1" },
+                timestamp: Date.now(),
+                message: { text: "hi" },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+    const degradedJson = await degradedRes.json();
+    assert(
+      degradedRes.status === 200 && degradedJson.messenger === "disabled",
+      "webhook degrades gracefully when the MessengerIdentity table is missing"
+    );
+    // Restore the table (same DDL as the messenger migration) for the linking
+    // tests below.
+    await prisma.$executeRawUnsafe(
+      `CREATE TABLE IF NOT EXISTS "${SCHEMA}"."MessengerIdentity" (` +
+        `"id" TEXT NOT NULL, "psid" TEXT NOT NULL, "pageId" TEXT NOT NULL, "userId" TEXT, "mobile" TEXT, ` +
+        `"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, ` +
+        `CONSTRAINT "MessengerIdentity_pkey" PRIMARY KEY ("id"))`
+    );
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "MessengerIdentity_psid_key" ON "${SCHEMA}"."MessengerIdentity"("psid")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessengerIdentity_userId_idx" ON "${SCHEMA}"."MessengerIdentity"("userId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessengerIdentity_mobile_idx" ON "${SCHEMA}"."MessengerIdentity"("mobile")`);
+
     log("messenger webhook: PSID capture…");
     const whRes = await request("/api/webhooks/messenger", {
       method: "POST",

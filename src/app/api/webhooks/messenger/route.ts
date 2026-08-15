@@ -20,9 +20,29 @@ import { parseAddressSnapshot } from "@/lib/address";
  * Signature: real Messenger payloads are HMAC-signed with the app secret
  * (X-Hub-Signature-256). Enforced when MESSENGER_APP_SECRET is set; without it
  * (demo) POSTs are accepted so the flow can be exercised locally.
+ *
+ * Degradation: databases that haven't run the messenger migration have no
+ * `MessengerIdentity` table. The webhook must then still acknowledge Meta's
+ * events (Meta requires a 2xx) without erroring — it returns
+ * `{ ok: true, messenger: "disabled" }` and skips PSID linking until the
+ * migration is applied. Only genuine database failures (unreachable DB)
+ * return a 5xx, so Meta retries the event later.
  */
 
 const ORDER_RE = /\bNC-\d{4}-\d{5}\b/i;
+
+/** True when the MessengerIdentity table exists in the connected database;
+ * null when the database itself is unreachable (so the caller can 5xx). */
+async function messengerIdentityTableExists(): Promise<boolean | null> {
+  try {
+    const rows = (await prisma.$queryRawUnsafe(
+      "SELECT COUNT(*)::int AS n FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'MessengerIdentity'"
+    )) as Array<{ n: number }>;
+    return (rows[0]?.n ?? 0) === 1;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -55,6 +75,22 @@ export async function POST(req: Request) {
     payload = JSON.parse(raw);
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  // Degrade gracefully when the messenger migration hasn't been applied.
+  const tableOk = await messengerIdentityTableExists();
+  if (tableOk === null) {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  }
+  if (!tableOk) {
+    console.warn(
+      "[messenger-webhook] MessengerIdentity table is missing — PSID linking disabled " +
+        "(run `prisma migrate deploy` to enable Messenger notifications)."
+    );
+    return NextResponse.json(
+      { ok: true, messenger: "disabled", reason: "MessengerIdentity table missing" },
+      { status: 200 }
+    );
   }
 
   for (const entry of payload.entry ?? []) {
