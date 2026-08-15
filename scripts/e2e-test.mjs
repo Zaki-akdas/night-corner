@@ -999,6 +999,17 @@ async function main() {
     update: { value: JSON.stringify(TEST_SETTINGS) },
     create: { key: "app_settings", value: JSON.stringify(TEST_SETTINGS) },
   });
+
+  // The deployment's serverless instances cache settings for 10s per isolate
+  // (src/lib/settings.ts CACHE_TTL_MS). They were primed with the shop's REAL
+  // values (minOrder ₹199) by the resolve/open-status polls moments before this
+  // run seeds test values (₹99), so an order POST inside that window reads the
+  // stale real minimum and is rejected. Drain the TTL so every instance
+  // re-reads the seeded values before the flow starts.
+  if (REMOTE_MODE) {
+    log("remote mode: draining the per-instance settings cache (10s TTL) so seeded values take effect");
+    await new Promise((r) => setTimeout(r, 11_000));
+  }
   const adminHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
   const admin = await prisma.user.upsert({
     where: { email: ADMIN_EMAIL },
@@ -1781,3 +1792,4 @@ main()
     console.error(`\n\x1b[31mE2E ERROR: ${e.message}\x1b[0m`);
     process.exit(1);
   });
+
