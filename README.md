@@ -218,6 +218,16 @@ update. The in-app notification and admin activity log are unaffected.
 
 ---
 
+## 🗄️ Schema changes (Prisma migrations)
+
+Schema changes ship automatically: the build script runs `prisma generate && node scripts/prebuild.mjs && next build`, so **`prisma migrate deploy` runs on every Vercel deployment** — commit a new migration and it applies on the next deploy, no manual steps.
+
+- **Creating a change:** edit `prisma/schema.prisma`, then run `npx prisma migrate dev --name <what-changed>` locally. Commit the generated `prisma/migrations/<timestamp>_<name>/migration.sql`.
+- **One-time baseline (already handled):** databases that predate migrations (created via `prisma db push`) are baselined automatically by `scripts/prebuild.mjs` — the idempotent `20260815000000_init` migration is recorded as applied without touching data, so `migrate deploy` only applies genuinely new migrations (e.g. `20260815000001_messenger_identity`). The production database gets this treatment on the first deploy after the conversion.
+- **Local sync:** `npx prisma migrate deploy` (or `npm run db:push` for the legacy schema-sync) to bring a local database up to date.
+
+---
+
 ## 🧱 Tech stack
 
 - **Framework:** Next.js 14 App Router, React 18, TypeScript
