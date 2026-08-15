@@ -33,7 +33,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           max_timeout: 600
 
+      - name: Guard — require a preview URL
+        if: ${{ steps.vercel.outputs.preview_url == '' }}
+        run: |
+          echo "::error::No Vercel preview URL found. This workflow needs a PR-linked preview deployment; a manual dispatch without a PR has no preview to test against. Refusing to run the e2e — with an empty URL it would fall back to local mode and hit the shared production database."
+          exit 1
+
       - name: Run E2E against the preview
+        if: ${{ steps.vercel.outputs.preview_url != '' }}
         env:
           # The preview deployment URL (https://<project>-<hash>-<user>.vercel.app)
           E2E_BASE_URL: ${{ steps.vercel.outputs.preview_url }}
