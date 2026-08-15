@@ -10,7 +10,8 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "test:e2e": "node scripts/e2e-test.mjs",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:check": "node scripts/check-schema.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

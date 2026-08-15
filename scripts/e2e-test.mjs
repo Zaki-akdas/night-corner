@@ -636,6 +636,14 @@ async function main() {
   process.env.DIRECT_URL = TEST_URL;
   const prisma = new PrismaClient();
 
+  // 2a. Post-provisioning smoke check: MessengerIdentity must exist in the
+  // test schema (guards schema.prisma drift — its absence breaks the
+  // Messenger webhook/connect-link at runtime).
+  const miRows = await prisma.$queryRawUnsafe(
+    `SELECT COUNT(*)::int AS n FROM pg_tables WHERE schemaname = '${SCHEMA}' AND tablename = 'MessengerIdentity'`
+  );
+  assert(miRows[0]?.n === 1, "test schema has the MessengerIdentity table");
+
   const category = await prisma.category.upsert({
     where: { slug: "test-category" },
     update: { name: "Test Category" },

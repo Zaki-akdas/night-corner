@@ -225,6 +225,7 @@ Schema changes ship automatically: the build script runs `prisma generate && nod
 - **Creating a change:** edit `prisma/schema.prisma`, then run `npx prisma migrate dev --name <what-changed>` locally. Commit the generated `prisma/migrations/<timestamp>_<name>/migration.sql`.
 - **One-time baseline (already handled):** databases that predate migrations (created via `prisma db push`) are baselined automatically by `scripts/prebuild.mjs` — the idempotent `20260815000000_init` migration is recorded as applied without touching data, so `migrate deploy` only applies genuinely new migrations (e.g. `20260815000001_messenger_identity`). The production database gets this treatment on the first deploy after the conversion.
 - **Local sync:** `npx prisma migrate deploy` (or `npm run db:push` for the legacy schema-sync) to bring a local database up to date.
+- **Post-deploy smoke test:** `npm run db:check` verifies the database actually has the `MessengerIdentity` table and that the `20260815000001_messenger_identity` migration is recorded as applied — run it after any deployment (`--schema <name>` to check a specific schema).
 
 ---
 
