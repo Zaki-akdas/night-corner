@@ -18,6 +18,7 @@ import { useCart } from "@/components/cart/cart-context";
 import { formatINR } from "@/lib/settings";
 import { useToast } from "@/components/ui/toast";
 import { useOpenStatus } from "@/hooks/use-open-status";
+import { motion } from "framer-motion";
 
 type Address = {
   id: string;
@@ -490,7 +491,7 @@ export default function CheckoutPage() {
                         </a>
                       ) : (
                         <div className="mt-2">
-                          <span className="text-xs text-amber-400">⚠️ No location set — tap <strong>"Add delivery location"</strong> below to continue</span>
+                          <span className="text-xs text-amber-400">⚠️ No location set — tap <strong>&quot;Add delivery location&quot;</strong> below to continue</span>
                           {patchingLocation === a.id ? (
                             <div className="mt-2 space-y-2">
                               <div className="grid grid-cols-2 gap-2">
@@ -612,7 +613,7 @@ export default function CheckoutPage() {
               )}
               {selectedAddress && !addresses.find((x) => x.id === selectedAddress)?.lat && (
                 <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
-                  ⚠️ Your selected address has no delivery location. Tap the <strong>"Add delivery location"</strong> button on that address card above, then confirm the pop-up, before continuing.
+                  ⚠️ Your selected address has no delivery location. Tap the <strong>&quot;Add delivery location&quot;</strong> button on that address card above, then confirm the pop-up, before continuing.
                 </p>
               )}
               <button
@@ -864,5 +865,3 @@ function PayOption({
   );
 }
 
-// local motion import to keep the file self-contained
-import { motion } from "framer-motion";

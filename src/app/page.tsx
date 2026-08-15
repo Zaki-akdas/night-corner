@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
-import { getOpenStatus, fmtTime, fmtCountdown } from "@/lib/hours";
+import { getOpenStatus } from "@/lib/hours";
 import { Hero } from "@/components/home/hero";
 import { ProductCard } from "@/components/product-card";
 import { CategoryGrid } from "@/components/home/category-grid";
@@ -22,10 +22,9 @@ export default async function HomePage() {
   const settings = await getSettings();
   const status = getOpenStatus(settings);
 
-  const [bestSellers, featured, bakery, snacks, chocolates, instant, drinks, deals] =
+  const [bestSellers, bakery, snacks, chocolates, instant, drinks, deals] =
     await Promise.all([
       prisma.product.findMany({ where: { bestSeller: true, active: true }, take: 8 }),
-      prisma.product.findMany({ where: { featured: true, active: true }, take: 8 }),
       prisma.product.findMany({
         where: { category: { slug: "bakery-desserts" }, active: true },
         take: 6,

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
-import Image from "next/image";
 import { CategoryManager } from "./category-manager";
 
 export const dynamic = "force-dynamic";

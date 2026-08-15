@@ -23,8 +23,9 @@ export async function POST(req: Request) {
   while (await prisma.category.findUnique({ where: { slug } })) {
     slug = `${baseSlug}-${++n}`;
   }
+  let cat;
   try {
-    var cat = await prisma.category.create({
+    cat = await prisma.category.create({
       data: {
         name: parsed.data.name,
         description: parsed.data.description,

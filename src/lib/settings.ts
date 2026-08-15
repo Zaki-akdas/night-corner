@@ -8,6 +8,11 @@ export type AppSettings = {
   openTime: string; // "22:00"
   closeTime: string; // "06:00"
   openDays: number[]; // 0=Sun .. 6=Sat ; default all
+  // IANA timezone the hours above refer to. The ordering window is computed
+  // against this zone's wall clock, NOT the server's — serverless runtimes
+  // (Vercel) run in UTC/Tokyo and would otherwise open/close at the wrong
+  // local time for the shop.
+  timezone: string;
   forceOpen: boolean; // admin override
   emergencyClosed: boolean;
   holidays: string[]; // ISO date strings
@@ -47,6 +52,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   openTime: "22:00",
   closeTime: "06:00",
   openDays: [0, 1, 2, 3, 4, 5, 6],
+  timezone: "Asia/Kolkata",
   forceOpen: false,
   emergencyClosed: false,
   holidays: [],

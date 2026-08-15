@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/admin";
 import { formatINR } from "@/lib/settings";
 import { STATUS_FLOW } from "@/lib/types";
-import { statusLabel } from "@/lib/orders";
 import { OrderTimeline } from "@/components/account/order-timeline";
 import { DeliveryRating } from "@/components/account/delivery-rating";
 import { ResendPinButton } from "@/components/account/resend-pin-button";

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
-import { statusLabel } from "@/lib/orders";
 import Link from "next/link";
 import { Bike, PackageCheck, Timer, Star, TrendingUp } from "lucide-react";
 import { StatsTabs } from "./tabs";

@@ -85,7 +85,7 @@ function startCrickets(ac: AudioContext, out: AudioNode) {
   const scheduleBurst = () => {
     if (!alive) return;
     const ticks = 3 + Math.floor(Math.random() * 4);
-    let t0 = nextTime;
+    const t0 = nextTime;
     for (let i = 0; i < ticks; i++) {
       const start = t0 + i * (0.12 + Math.random() * 0.06);
       const osc = ac.createOscillator();

@@ -3,8 +3,6 @@ import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { formatINR } from "@/lib/settings";
-import { statusLabel } from "@/lib/orders";
-import { ORDER_STATUSES } from "@/lib/types";
 import { OrderStatusUpdater } from "./status-updater";
 import { AssigneeSelect } from "./assignee-select";
 import { Download, MapPin, Phone } from "lucide-react";

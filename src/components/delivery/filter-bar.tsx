@@ -26,13 +26,11 @@ const SORT_OPTIONS = [
 export function FilterBar({
   statusCounts,
   paymentCounts,
-  currentUserId,
   staffList,
   isAdmin,
 }: {
   statusCounts: Record<string, number>;
   paymentCounts: Record<string, number>;
-  currentUserId: string;
   staffList: { id: string; name: string | null }[];
   isAdmin: boolean;
 }) {

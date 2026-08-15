@@ -27,7 +27,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
           </div>
           {/* horizontal pill nav on mobile, vertical sidebar on desktop */}
           <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
-            <SideLink href="/account" icon={<User className="h-4 w-4" />} label="Dashboard" exact />
+            <SideLink href="/account" icon={<User className="h-4 w-4" />} label="Dashboard" />
             <SideLink href="/account/orders" icon={<Package className="h-4 w-4" />} label="My Orders" />
             <SideLink href="/account/addresses" icon={<MapPin className="h-4 w-4" />} label="Addresses" />
             <SideLink href="/account/wishlist" icon={<Heart className="h-4 w-4" />} label="Wishlist" />
@@ -47,12 +47,10 @@ function SideLink({
   href,
   icon,
   label,
-  exact,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
-  exact?: boolean;
 }) {
   return (
     <Link

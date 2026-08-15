@@ -16,13 +16,12 @@ export default async function AnalyticsPage() {
   const monthStart = new Date(now);
   monthStart.setDate(monthStart.getDate() - 30);
 
-  const [daily, weekly, monthly, aovAgg, ordersByDay, categoriesRaw, topProducts, repeatAgg, newCustomers, cancellationAgg] =
+  const [daily, weekly, monthly, aovAgg, categoriesRaw, topProducts, repeatAgg, newCustomers, cancellationAgg] =
     await Promise.all([
       prisma.order.aggregate({ where: { createdAt: { gte: dayStart }, status: { not: "CANCELLED" } }, _sum: { total: true }, _count: true }),
       prisma.order.aggregate({ where: { createdAt: { gte: weekStart }, status: { not: "CANCELLED" } }, _sum: { total: true }, _count: true }),
       prisma.order.aggregate({ where: { createdAt: { gte: monthStart }, status: { not: "CANCELLED" } }, _sum: { total: true }, _count: true }),
       prisma.order.aggregate({ where: { status: { not: "CANCELLED" } }, _avg: { total: true } }),
-      prisma.order.groupBy({ by: ["createdAt"], _count: true, orderBy: { createdAt: "asc" } }),
       prisma.category.findMany({ include: { products: { include: { orderItems: true } } } }),
       prisma.product.findMany({ where: { active: true }, orderBy: { sold: "desc" }, take: 8 }),
       prisma.user.findMany({ where: { role: "CUSTOMER" }, include: { _count: { select: { orders: true } } } }),
@@ -30,7 +29,6 @@ export default async function AnalyticsPage() {
       prisma.order.aggregate({ where: { status: "CANCELLED" }, _count: true }),
     ]);
 
-  const totalOrders = daily._count + weekly._count;
   const repeatCustomers = repeatAgg.filter((u) => u._count.orders > 1).length;
 
   const salesByDay: { date: string; sales: number; orders: number }[] = [];
