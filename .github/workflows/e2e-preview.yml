@@ -58,9 +58,18 @@ jobs:
                     signal: AbortSignal.timeout(10_000),
                   });
                   if (res.ok) {
-                    core.setOutput("preview_url", url);
-                    core.info(`preview URL resolved: ${url}`);
-                    return;
+                    // The comment's link is the branch alias, which only points
+                    // at the newest READY deployment — but between a push and
+                    // the alias switch it can still serve the PREVIOUS build.
+                    // Only trust it when the running build is the PR head:
+                    // open-status exposes the deployment's git commit SHA.
+                    const body = await res.json().catch(() => null);
+                    if (body?.sha && body.sha === context.sha) {
+                      core.setOutput("preview_url", url);
+                      core.info(`preview URL resolved: ${url} (build ${body.sha.slice(0, 7)} matches PR head ${context.sha.slice(0, 7)})`);
+                      return;
+                    }
+                    core.info(`candidate ${url} serves ${body?.sha ? `build ${body.sha.slice(0, 7)}` : "an unknown build"} — waiting for the PR-head deployment (${context.sha.slice(0, 7)})`);
                   }
                 } catch { /* not ready yet — keep polling */ }
               }
