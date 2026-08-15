@@ -58,9 +58,20 @@ export function waMeLink(phone: string, message: string): string {
   return `https://wa.me/${clean}?text=${encodeURIComponent(message)}`;
 }
 
+/** Parameters for a Meta-approved template message (business-initiated
+ * messages outside the 24h customer window MUST use a template). When
+ * WHATSAPP_TEMPLATE_NAME is set and a template is supplied, the message is
+ * sent as type:"template" with these body parameters; otherwise it falls back
+ * to free-form text (fine for test numbers / the 24h window). */
+export type WhatsAppTemplateParams = {
+  parameters: string[];
+  language?: string;
+};
+
 export async function sendWhatsappMessage(
   phone: string,
-  message: string
+  message: string,
+  template?: WhatsAppTemplateParams
 ): Promise<{ ok: boolean; link?: string; error?: string }> {
   const link = waMeLink(phone, message);
   const token = process.env.WHATSAPP_API_TOKEN;
@@ -78,12 +89,32 @@ export async function sendWhatsappMessage(
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: phone.replace(/[^\d]/g, ""),
-          type: "text",
-          text: { body: message },
-        }),
+        body: JSON.stringify(
+        template && process.env.WHATSAPP_TEMPLATE_NAME
+          ? {
+              messaging_product: "whatsapp",
+              to: phone.replace(/[^\d]/g, ""),
+              type: "template",
+              template: {
+                name: process.env.WHATSAPP_TEMPLATE_NAME,
+                language: {
+                  code: template.language || process.env.WHATSAPP_TEMPLATE_LANG || "en",
+                },
+                components: [
+                  {
+                    type: "body",
+                    parameters: template.parameters.map((t) => ({ type: "text", text: t })),
+                  },
+                ],
+              },
+            }
+          : {
+              messaging_product: "whatsapp",
+              to: phone.replace(/[^\d]/g, ""),
+              type: "text",
+              text: { body: message },
+            }
+      ),
       }
     );
     if (!res.ok) return { ok: false, link, error: await res.text() };

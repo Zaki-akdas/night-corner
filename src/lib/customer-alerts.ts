@@ -1,4 +1,4 @@
-import { sendWhatsappMessage } from "./whatsapp";
+import { sendWhatsappMessage, type WhatsAppTemplateParams } from "./whatsapp";
 import { sendSmsMessage } from "./sms";
 import { sendMessengerMessage, getMessengerPsid } from "./messenger";
 import { getSettings, formatINR, type AppSettings } from "./settings";
@@ -69,7 +69,12 @@ export async function notifyCustomerOrderStatus(
   const settings = await getSettings().catch(() => null);
   if (!settings) return;
   const msg = buildCustomerOrderMessage(order, status, origin);
-  await sendToCustomerPhone(mobile, msg, settings, { userId: order.userId });
+  await sendToCustomerPhone(mobile, msg, settings, {
+    userId: order.userId,
+    whatsappTemplate: order.deliveryPin
+      ? { parameters: [order.orderNumber, order.deliveryPin] }
+      : undefined,
+  });
 }
 
 /** Compact message for the "Resend PIN" action (the original confirmation
@@ -99,6 +104,7 @@ export async function resendCustomerDeliveryPin(
   if (!settings) return;
   await sendToCustomerPhone(mobile, buildDeliveryPinMessage(order, origin), settings, {
     userId: order.userId,
+    whatsappTemplate: { parameters: [order.orderNumber, order.deliveryPin] },
   });
 }
 
@@ -109,10 +115,10 @@ async function sendToCustomerPhone(
   mobile: string,
   msg: string,
   settings: AppSettings,
-  opts?: { userId?: string | null }
+  opts?: { userId?: string | null; whatsappTemplate?: WhatsAppTemplateParams }
 ): Promise<void> {
   const sends: Promise<unknown>[] = [];
-  if (settings.notifyWhatsapp) sends.push(sendWhatsappMessage(mobile, msg));
+  if (settings.notifyWhatsapp) sends.push(sendWhatsappMessage(mobile, msg, opts?.whatsappTemplate));
   if (settings.notifySms) sends.push(sendSmsMessage(mobile, msg));
   if (settings.notifyMessenger) {
     // Messenger needs the customer's PSID — silently skipped until their
