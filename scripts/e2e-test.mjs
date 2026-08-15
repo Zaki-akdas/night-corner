@@ -182,10 +182,11 @@ const TEST_SETTINGS = {
   onlineEnabled: false,
   upiId: "nightcorner@upi",
   notifyEmail: false,
-  // Enabled so the OFD step exercises the external SMS/WhatsApp code path.
-  // Without provider credentials both senders run in demo mode (no-op ok).
+  // Enabled so the OFD step exercises the external SMS/WhatsApp/Messenger code
+  // paths. Without provider credentials the senders run in demo mode (no-op ok).
   notifyWhatsapp: true,
   notifySms: true,
+  notifyMessenger: true,
 };
 
 let failures = 0;
@@ -409,6 +410,7 @@ async function sweepDynamicRoutes(ctx) {
     // ── customer API ──
     { pattern: "/api/orders/[id]/invoice", method: "GET", label: "invoice GET (customer)", run: () => P("GET", `/api/orders/${orderId}/invoice`, { jar: customer }), allowed: [200] },
     { pattern: "/api/orders/[id]/rating", method: "PATCH", label: "order rating PATCH (customer, bogus → 404)", run: () => P("PATCH", "/api/orders/not-a-real-id/rating", { jar: customer, body: { rating: 5 } }), allowed: [404] },
+    { pattern: "/api/orders/[id]/resend-pin", method: "POST", label: "order PIN resend POST (customer, bogus → 404)", run: () => P("POST", "/api/orders/not-a-real-id/resend-pin", { jar: customer }), allowed: [404] },
     // ── NextAuth catch-all (framework-handled; exercised by every login) ──
     { pattern: "/api/auth/[...nextauth]", method: "GET", label: "nextauth catch-all (providers)", run: () => P("GET", "/api/auth/providers"), allowed: [200] },
   ];
@@ -875,6 +877,46 @@ async function main() {
 
     const notif = await prisma.notification.findFirst({ where: { userId, type: "ORDER" }, orderBy: { createdAt: "desc" } });
     assert(!!notif && /Order confirmed/.test(notif.title), "customer notification persisted");
+    assert(notif && notif.body.includes(order.deliveryPin), "placed notification includes the delivery PIN");
+
+    // 5a. Messenger: the webhook ingests page events and links the PSID to the
+    // order's mobile (demo mode — no app secret set, so no signature required).
+    log("messenger webhook: PSID capture…");
+    const whRes = await request("/api/webhooks/messenger", {
+      method: "POST",
+      body: JSON.stringify({
+        object: "page",
+        entry: [
+          {
+            id: "100000000000000",
+            messaging: [
+              {
+                sender: { id: "PSID_E2E_001" },
+                recipient: { id: "100000000000000" },
+                timestamp: Date.now(),
+                message: { text: `hi, track ${orderJson.orderNumber}` },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+    assert(whRes.status === 200, "messenger webhook accepts a page event");
+    const identity = await prisma.messengerIdentity.findUnique({ where: { psid: "PSID_E2E_001" } });
+    assert(!!identity && identity.mobile === "9876500001", "webhook links the PSID to the order's mobile");
+    assert(!!identity && identity.pageId === "100000000000000", "webhook records the page id");
+
+    // Webhook verification gate: no matching verify token → 403.
+    const whVerify = await request("/api/webhooks/messenger?hub.mode=subscribe&hub.verify_token=nope&hub.challenge=x");
+    assert(whVerify.status === 403, "messenger webhook rejects a bad verify token");
+
+    // The account connect link carries the userId as the m.me ref.
+    const connectRes = await request("/api/messenger/connect-link", { jar });
+    const connectJson = await connectRes.json();
+    assert(
+      connectRes.status === 200 && /m\.me/.test(connectJson.url || "") && String(connectJson.url || "").includes(userId),
+      "messenger connect link carries the userId ref"
+    );
 
     const activity = await prisma.activityLog.findFirst({ where: { userId, action: "ORDER_PLACED" }, orderBy: { createdAt: "desc" } });
     assert(!!activity, "admin activity log persisted (regression: fire-and-forget race)");
@@ -974,6 +1016,7 @@ async function main() {
     const deliveryHtml = await deliveryRes.text();
     assert(deliveryRes.status === 200, "delivery dashboard loads for staff (200)");
     assert(deliveryHtml.includes(orderJson.orderNumber), `order ${orderJson.orderNumber} in delivery dashboard`);
+    assert(deliveryHtml.includes("Delivery PIN required"), "delivery cards flag the required delivery PIN");
     assert(
       /Live/.test(deliveryHtml) && /Refresh/.test(deliveryHtml),
       "delivery dashboard auto-refresh indicator rendered"
@@ -985,6 +1028,18 @@ async function main() {
     assert(
       deliveryHtml.includes(`data-order-number="${orderJson.orderNumber}"`),
       "order cards carry data-order-number for alert dedupe"
+    );
+    assert(
+      deliveryHtml.includes(`data-order-status="CONFIRMED"`),
+      "order cards carry data-order-status for alert dedupe"
+    );
+    assert(
+      deliveryHtml.includes(`data-order-id="${orderId}"`),
+      "order cards carry data-order-id for notification deep-linking"
+    );
+    assert(
+      deliveryHtml.includes('aria-label="Call 9876500001 to ask for the delivery PIN"'),
+      "delivery cards have a one-tap call button for the PIN"
     );
 
     const detailRes = await request(`/delivery/${orderId}`, { jar: staffJar });
@@ -1016,7 +1071,7 @@ async function main() {
 
     const ofdOrder = await prisma.order.findUnique({ where: { id: orderId } });
     assert(ofdOrder.status === "OUT_FOR_DELIVERY", `order status persisted (${ofdOrder.status})`);
-    assert(/^\d{6}$/.test(ofdOrder.deliveryPin || ""), "order has a unique 6-digit delivery PIN");
+    assert(/^\d{4}$/.test(ofdOrder.deliveryPin || ""), "order has a unique 4-digit delivery PIN");
     const ofdPin = ofdOrder.deliveryPin;
 
     const ofdNotif = await prisma.notification.findFirst({
@@ -1027,6 +1082,25 @@ async function main() {
     assert(
       ofdNotif && ofdNotif.body.includes(ofdPin),
       "out-for-delivery notification includes the delivery PIN"
+    );
+
+    // The rider's detail page reminds them to COLLECT the PIN at handover but
+    // never reveals the value — the PIN stays with the customer until they
+    // hand it over.
+    const riderDetail = await request(`/delivery/${orderId}`, { jar: staffJar });
+    const riderDetailHtml = await riderDetail.text();
+    assert(/Delivery PIN required/.test(riderDetailHtml), "rider sees the collect-the-PIN banner");
+    assert(
+      riderDetailHtml.includes("Delivery PIN required to confirm"),
+      "rider flow highlights the PIN inside Mark Delivered"
+    );
+    assert(
+      riderDetailHtml.includes('aria-label="Call 9876500001 to ask for the delivery PIN"'),
+      "rider PIN reminder has a one-tap call button"
+    );
+    assert(
+      !/font-display text-2xl font-extrabold tracking-/.test(riderDetailHtml),
+      "rider never sees a customer-style PIN display before handover"
     );
 
     const ofdActivity = await prisma.activityLog.findFirst({
@@ -1041,6 +1115,18 @@ async function main() {
       body: JSON.stringify({ status: "OUT_FOR_DELIVERY" }),
     });
     assert(invalidRes.status === 400, "re-marks OUT_FOR_DELIVERY rejected (forward-only)");
+
+    // Customer can re-send the delivery PIN to their phone; a rapid repeat is
+    // throttled by the cooldown so paid SMS/WhatsApp can't be spammed.
+    const resendRes = await request(`/api/orders/${orderId}/resend-pin`, { method: "POST", jar });
+    assert(resendRes.status === 200, "customer resends the delivery PIN");
+    const resendActivity = await prisma.activityLog.findFirst({
+      where: { action: "PIN_RESENT", entityId: orderId },
+      orderBy: { createdAt: "desc" },
+    });
+    assert(!!resendActivity, "PIN resend logged in the activity log");
+    const throttledRes = await request(`/api/orders/${orderId}/resend-pin`, { method: "POST", jar });
+    assert(throttledRes.status === 429, "PIN resend throttled by the cooldown");
 
     // Proof of delivery: a photo + the customer's PIN are required first.
     const noPodRes = await request(`/api/delivery/orders/${orderId}/status`, {
@@ -1125,8 +1211,8 @@ async function main() {
       assert(!!deliveredNotif, "customer notified of delivery");
     }
 
-    // The customer's order page shows their delivery PIN (works from
-    // OUT_FOR_DELIVERY onward).
+    // The customer's order page shows their delivery PIN (from placement
+    // onward).
     const custOrderRes = await request(`/account/orders/${orderId}`, { jar });
     const custOrderHtml = await custOrderRes.text();
     assert(custOrderHtml.includes(ofdPin), "customer order page shows the delivery PIN");

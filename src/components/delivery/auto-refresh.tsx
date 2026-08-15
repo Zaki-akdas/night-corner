@@ -4,7 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Volume2, VolumeX } from "lucide-react";
 import { useOrderUpdates } from "@/lib/realtime-client";
-import { playNewOrderAlert } from "@/lib/new-order-alert";
+import {
+  playNewOrderAlert,
+  playDeliveryPinAlert,
+  notifyRider,
+  enableRiderNotifications,
+} from "@/lib/new-order-alert";
+import { useToast } from "@/components/ui/toast";
+
+// Transitions that trigger a rider alert: a new order (PLACED) and the
+// handover moment (OUT_FOR_DELIVERY), which carries the delivery-PIN reminder.
+const ALERT_STATUSES = new Set(["PLACED", "OUT_FOR_DELIVERY"]);
 
 // Slow safety net: realtime is the primary trigger; this only catches gaps
 // when the WebSocket is down (e.g. flaky networks, blocked WS).
@@ -24,17 +34,20 @@ export function AutoRefresh() {
   // Sound + vibration alerts default ON; a stored preference is applied only
   // after mount so the first client render matches SSR (no hydration error).
   const [soundOn, setSoundOn] = useState(true);
-  // Order numbers we've already alerted on — ensures exactly one alert per
-  // new order, even if realtime replays events or the poll catches up.
-  const seenOrders = useRef<Set<string>>(new Set());
+  const toast = useToast();
+  // Order-number:status combos we've already alerted on — ensures exactly one
+  // alert per transition (PLACED = new order, OUT_FOR_DELIVERY = handover
+  // next), even if realtime replays events or the poll catches up.
+  const seenAlerts = useRef<Set<string>>(new Set());
   useEffect(() => setMounted(true), []);
 
   // Seed the seen-set with orders already on the dashboard, so only genuinely
-  // new order numbers trigger an alert.
+  // new transitions trigger an alert (no alert-storm on first load).
   useEffect(() => {
     document.querySelectorAll("[data-order-number]").forEach((el) => {
       const n = el.getAttribute("data-order-number");
-      if (n) seenOrders.current.add(n);
+      const s = el.getAttribute("data-order-status");
+      if (n && s && ALERT_STATUSES.has(s)) seenAlerts.current.add(`${n}:${s}`);
     });
   }, []);
 
@@ -46,10 +59,38 @@ export function AutoRefresh() {
     }
   }, []);
 
-  const alertFor = (orderNumber: string) => {
-    if (seenOrders.current.has(orderNumber)) return false;
-    seenOrders.current.add(orderNumber);
-    if (soundOn) playNewOrderAlert();
+  const alertFor = (orderNumber: string, status: string, orderId?: string) => {
+    if (!ALERT_STATUSES.has(status)) return false;
+    const key = `${orderNumber}:${status}`;
+    if (seenAlerts.current.has(key)) return false;
+    seenAlerts.current.add(key);
+    // Distinct sound/vibration at handover so the PIN reminder stands out;
+    // the toast always shows (even when muted) so the reminder is never lost,
+    // and the system notification surfaces it even in a minimized tab. Tapping
+    // the notification jumps straight to this order's delivery page.
+    if (soundOn) {
+      if (status === "OUT_FOR_DELIVERY") playDeliveryPinAlert();
+      else playNewOrderAlert();
+      notifyRider(
+        status === "OUT_FOR_DELIVERY" ? "Delivery PIN reminder" : "New delivery order",
+        status === "OUT_FOR_DELIVERY"
+          ? `🛵 ${orderNumber} is out for delivery — ask the customer for their delivery PIN.`
+          : `🔑 New order ${orderNumber} — collect the delivery PIN at handover.`,
+        key,
+        orderId ? `/delivery/${orderId}` : undefined
+      );
+    }
+    toast.push(
+      status === "OUT_FOR_DELIVERY"
+        ? {
+            type: "info",
+            message: `🛵 ${orderNumber} is out for delivery — ask the customer for their delivery PIN at handover.`,
+          }
+        : {
+            type: "success",
+            message: `🔑 New order ${orderNumber} — it has a delivery PIN; collect it at handover.`,
+          }
+    );
     return true;
   };
 
@@ -61,16 +102,19 @@ export function AutoRefresh() {
     window.setTimeout(() => {
       document.querySelectorAll("[data-order-number]").forEach((el) => {
         const n = el.getAttribute("data-order-number");
-        if (n) alertFor(n);
+        const s = el.getAttribute("data-order-status");
+        const id = el.getAttribute("data-order-id");
+        if (n && s) alertFor(n, s, id ?? undefined);
       });
     }, 800);
   };
 
   // Live pushes arrive instantly over Supabase Realtime.
   const rtStatus = useOrderUpdates((event) => {
-    // New orders are created as PLACED; other statuses are just updates.
-    if (event.status === "PLACED") {
-      alertFor(event.orderNumber);
+    // New orders (PLACED) and the handover moment (OUT_FOR_DELIVERY) both
+    // alert with the delivery-PIN reminder; other statuses are just updates.
+    if (event.status === "PLACED" || event.status === "OUT_FOR_DELIVERY") {
+      alertFor(event.orderNumber, event.status, event.orderId);
       // Refresh even in a background tab so the order is already on screen
       // when the delivery person switches back.
       sync();
@@ -111,6 +155,47 @@ export function AutoRefresh() {
     };
   }, [router]);
 
+  // Keep a ref so the one-time permission ask below can read the current
+  // alerts state without re-subscribing to the effect.
+  const soundOnRef = useRef(soundOn);
+  useEffect(() => {
+    soundOnRef.current = soundOn;
+  }, [soundOn]);
+
+  // System notifications require a user gesture to request permission. Ask on
+  // the first interaction with the dashboard (the rider is clearly present) so
+  // alerts work even though the toggle defaults to ON.
+  const askForSystemAlerts = async () => {
+    try {
+      if (typeof window === "undefined" || !("Notification" in window)) return;
+      if (Notification.permission !== "default") return; // already granted/denied
+      const granted = await enableRiderNotifications();
+      if (granted) {
+        toast.push({
+          type: "success",
+          message: "System alerts enabled — delivery PIN reminders appear even when the tab is minimized.",
+        });
+      } else {
+        toast.push({
+          type: "error",
+          message: "System alerts blocked — allow notifications in browser settings to get PIN reminders.",
+        });
+      }
+    } catch {
+      // ignore — alerts still work via sound/vibration/toast
+    }
+  };
+
+  useEffect(() => {
+    const ask = () => {
+      document.removeEventListener("pointerdown", ask);
+      if (soundOnRef.current) askForSystemAlerts();
+    };
+    document.addEventListener("pointerdown", ask);
+    return () => document.removeEventListener("pointerdown", ask);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const toggleSound = () => {
     setSoundOn((prev) => {
       const next = !prev;
@@ -119,6 +204,9 @@ export function AutoRefresh() {
       } catch {
         // storage unavailable — in-memory only
       }
+      // Turning alerts back on is a user gesture — ask for system
+      // notifications then, too.
+      if (next) askForSystemAlerts();
       return next;
     });
   };
@@ -140,7 +228,11 @@ export function AutoRefresh() {
       <button
         onClick={toggleSound}
         aria-label={soundOn ? "Mute new-order alerts" : "Unmute new-order alerts"}
-        title={soundOn ? "New-order alerts on (sound & vibration)" : "New-order alerts muted"}
+        title={
+          soundOn
+            ? "New-order alerts on (sound, vibration & system notifications)"
+            : "New-order alerts muted"
+        }
         className={`btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 text-xs ${
           soundOn ? "" : "opacity-60"
         }`}

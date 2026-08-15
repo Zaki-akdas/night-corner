@@ -76,6 +76,7 @@ export default function CheckoutPage() {
   const [placing, setPlacing] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [deliveryPin, setDeliveryPin] = useState<string | null>(null);
   const [paymentConfig, setPaymentConfig] = useState<{
     cod: boolean;
     upi: boolean;
@@ -368,6 +369,7 @@ export default function CheckoutPage() {
       if (!res.ok) throw new Error(data.error || "Could not place order");
       setOrderId(data.orderId);
       setOrderNumber(data.orderNumber);
+      setDeliveryPin(data.deliveryPin ?? null);
       clear();
       setStep(4);
     } catch (e) {
@@ -752,8 +754,21 @@ export default function CheckoutPage() {
                 Your order number is{" "}
                 <span className="font-bold text-neon-blue">{orderNumber}</span>
               </p>
-              <p className="mt-1 text-sm text-slate-400">
-                We&apos;ve sent the details to WhatsApp and your dashboard. Track its progress live.
+              {deliveryPin && (
+                <div className="mx-auto mt-5 w-fit rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-8 py-4">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-emerald-200">
+                    🔑 Your delivery PIN
+                  </div>
+                  <div className="mt-1 font-display text-4xl font-extrabold tracking-[0.3em] text-emerald-300">
+                    {deliveryPin}
+                  </div>
+                  <div className="mt-1 text-xs text-emerald-200/80">
+                    Share it with your delivery person at handover — it&apos;s also been sent to your phone.
+                  </div>
+                </div>
+              )}
+              <p className="mt-4 text-sm text-slate-400">
+                We&apos;ve sent the order details and your delivery PIN to your phone. Track its progress live.
               </p>
               <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                 <a href={`/account/orders/${orderId}`} className="btn-primary">Track Order</a>

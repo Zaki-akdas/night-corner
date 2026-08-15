@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bike, CheckCircle2, ChevronDown, ImagePlus, KeyRound, Loader2, X } from "lucide-react";
+import { Bike, CheckCircle2, ChevronDown, ImagePlus, KeyRound, Loader2, Phone, X } from "lucide-react";
 
 const PRE_DELIVERY = ["PLACED", "CONFIRMED", "PREPARING", "PACKED"];
 
@@ -16,10 +16,12 @@ export function DeliveryStatusActions({
   orderId,
   currentStatus,
   compact = false,
+  customerMobile,
 }: {
   orderId: string;
   currentStatus: string;
   compact?: boolean;
+  customerMobile?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -111,9 +113,7 @@ export function DeliveryStatusActions({
           {busy === "OUT_FOR_DELIVERY" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bike className="h-4 w-4" />}
           {busy === "OUT_FOR_DELIVERY" ? "Updating…" : "Mark Out for Delivery"}
         </button>
-      )}
-
-      {canDeliver && (
+      )}          {canDeliver && (
         <div className="space-y-2">
           <button
             onClick={() => setShowPod((s) => !s)}
@@ -123,6 +123,13 @@ export function DeliveryStatusActions({
             Mark Delivered
             <ChevronDown className={`h-4 w-4 transition-transform ${showPod ? "rotate-180" : ""}`} />
           </button>
+
+          {/* Telegraph the requirements even before the form expands. */}
+          {!showPod && (
+            <p className="text-xs text-slate-400">
+              Requires a delivery photo + the customer&apos;s delivery PIN
+            </p>
+          )}
 
           {showPod && (
             <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
@@ -163,6 +170,32 @@ export function DeliveryStatusActions({
                 className="hidden"
                 onChange={(e) => onPickPhoto(e.target.files?.[0] ?? null)}
               />
+
+              {/* Unmissable PIN reminder — sits right above the PIN field so
+                  delivery can't be confirmed without collecting it. */}
+              <div className="flex items-start gap-2.5 rounded-xl border border-amber-400/50 bg-amber-500/15 p-3 ring-2 ring-amber-400/30">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-400/20">
+                  <KeyRound className="h-4 w-4 text-amber-300" />
+                </span>
+                <div className="text-xs">
+                  <div className="font-bold uppercase tracking-wide text-amber-200">
+                    Delivery PIN required to confirm
+                  </div>
+                  <p className="mt-0.5 text-amber-100/90">
+                    Ask the customer for the 4-digit PIN sent to their phone. You must enter it here
+                    to complete the delivery.
+                  </p>
+                  {customerMobile && (
+                    <a
+                      href={`tel:${customerMobile}`}
+                      aria-label={`Call ${customerMobile} to ask for the delivery PIN`}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600/90 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-emerald-500"
+                    >
+                      <Phone className="h-3 w-3" /> Call customer for PIN
+                    </a>
+                  )}
+                </div>
+              </div>
 
               {/* PIN */}
               <div className="relative">

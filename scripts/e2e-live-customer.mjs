@@ -289,7 +289,8 @@ async function main() {
       ? ok("customer session blocked from delivery status API")
       : fail(`customer session NOT blocked (HTTP ${custGate.status})`);
 
-    // 11a. Out for delivery — generates the customer's 4-digit handover PIN.
+    // 11a. Out for delivery — the 4-digit handover PIN (issued at order
+    // placement) is re-shown to the customer now that the rider is on the way.
     const ofdRes = await req(`/api/delivery/orders/${orderId}/status`, {
       method: "PATCH",
       jar: staffLogin.jar,

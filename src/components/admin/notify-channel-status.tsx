@@ -1,4 +1,4 @@
-import { MessageSquare, MessageCircle } from "lucide-react";
+import { Facebook, MessageSquare, MessageCircle } from "lucide-react";
 
 /**
  * Server-only status for the external notification channels. Shows whether the
@@ -9,6 +9,7 @@ import { MessageSquare, MessageCircle } from "lucide-react";
 export function NotifyChannelStatus() {
   const waLive = Boolean(process.env.WHATSAPP_API_TOKEN && process.env.WHATSAPP_BUSINESS_NUMBER_ID);
   const smsLive = Boolean(process.env.FAST2SMS_API_KEY);
+  const messengerLive = Boolean(process.env.MESSENGER_PAGE_TOKEN);
 
   return (
     <section className="card space-y-3 p-5">
@@ -26,9 +27,15 @@ export function NotifyChannelStatus() {
           live={smsLive}
           hint="FAST2SMS_API_KEY"
         />
+        <ChannelBadge
+          icon={<Facebook className="h-4 w-4 text-blue-400" />}
+          name="Messenger"
+          live={messengerLive}
+          hint="MESSENGER_PAGE_TOKEN (+ MESSENGER_PAGE_ID for the connect link)"
+        />
       </div>
       <p className="text-xs text-slate-400">
-        {waLive && smsLive
+        {waLive && smsLive && messengerLive
           ? "All channels are live — real messages are being sent."
           : "Missing channels are in demo mode: every flow still works, but no real messages go out until the credentials above are set on Vercel (Project → Settings → Environment Variables) and redeployed."}
       </p>

@@ -18,6 +18,7 @@ import {
   Bike,
   Calendar,
   CheckCircle2,
+  KeyRound,
   MapPin,
   Navigation,
   Package,
@@ -71,8 +72,39 @@ export default async function DeliveryOrderPage({
         <span className="chip bg-neon-purple/20 text-neon-purple">{statusLabel(order.status)}</span>
       </div>
 
+      {/* Delivery-PIN reminder — the rider must COLLECT the PIN from the
+          customer at handover; the PIN value itself is never shown here. */}
+      {order.deliveryPin && !["CANCELLED", "REFUNDED", "DELIVERED"].includes(order.status) && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400/15">
+            <KeyRound className="h-5 w-5 text-amber-300" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-white">Delivery PIN required at handover</div>
+            <p className="text-sm text-amber-100/80">
+              The customer was sent a 4-digit delivery PIN on their phone. Ask them for it when you
+              hand over the order — you&apos;ll enter it to confirm delivery.
+            </p>
+            {customerMobile && (
+              <a
+                href={`tel:${customerMobile}`}
+                aria-label={`Call ${customerMobile} to ask for the delivery PIN`}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600/90 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                Call customer · {customerMobile}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Status actions */}
-      <DeliveryStatusActions orderId={order.id} currentStatus={order.status} />
+      <DeliveryStatusActions
+        orderId={order.id}
+        currentStatus={order.status}
+        customerMobile={customerMobile}
+      />
 
       {/* Header */}
       <div className="card space-y-1 p-5">

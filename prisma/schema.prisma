@@ -280,6 +280,22 @@ model Settings {
   value String // JSON blob
 }
 
+// ───────────────────────── Messenger (Meta) ─────────────────────────
+// Messenger delivers to Page-Scoped IDs (PSIDs), not phone numbers, so the
+// customer's PSID must be captured first (via the /api/webhooks/messenger
+// webhook or an m.me deep link) before notifications can be sent.
+model MessengerIdentity {
+  id        String   @id @default(cuid())
+  psid      String   @unique // Meta Page-Scoped ID of the customer's Messenger account
+  pageId    String   // the Facebook Page that owns this PSID
+  userId    String?  // linked Night Corner account (m.me deep-link ref)
+  mobile    String?  // linked customer mobile (matched via order number in webhook text)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId])
+  @@index([mobile])
+}
+
 // ───────────────────────── Notifications ─────────────────────────
 model Notification {
   id        String   @id @default(cuid())

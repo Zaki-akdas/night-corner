@@ -8,7 +8,7 @@ import { parseAddressSnapshot, formatAddressLine } from "@/lib/address";
 import { AutoRefresh } from "@/components/delivery/auto-refresh";
 import { FilterBar } from "@/components/delivery/filter-bar";
 import { DeliveryStatusActions } from "@/components/delivery/status-actions";
-import { Bike, Clock, MapPin, Package, UserCheck, UserX } from "lucide-react";
+import { Bike, Clock, KeyRound, MapPin, Package, Phone, UserCheck, UserX } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -171,6 +171,8 @@ export default async function DeliveryDashboardPage({
               <div
                 key={o.id}
                 data-order-number={o.orderNumber}
+                data-order-status={o.status}
+                data-order-id={o.id}
                 className="card space-y-3 p-5 transition hover:border-neon-blue/50"
               >
                 <Link href={`/delivery/${o.id}`} className="group block space-y-3">
@@ -230,7 +232,32 @@ export default async function DeliveryDashboardPage({
                       );
                     })()}
                 </Link>
-                <DeliveryStatusActions orderId={o.id} currentStatus={o.status} compact />
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Reminder only — the PIN value itself is never shown to the rider. */}
+                  {o.deliveryPin && (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-500/30">
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Delivery PIN required
+                    </span>
+                  )}
+                  {/* One-tap call so the rider can ask the customer for the PIN right away. */}
+                  {o.deliveryPin && addr?.mobile && (
+                    <a
+                      href={`tel:${addr.mobile}`}
+                      aria-label={`Call ${addr.mobile} to ask for the delivery PIN`}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-neon-blue/15 px-2 py-1 text-xs font-semibold text-neon-blue ring-1 ring-neon-blue/30 transition hover:bg-neon-blue/25"
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                      Call for PIN
+                    </a>
+                  )}
+                </div>
+                <DeliveryStatusActions
+                  orderId={o.id}
+                  currentStatus={o.status}
+                  compact
+                  customerMobile={addr?.mobile ?? ""}
+                />
               </div>
             );
           })}

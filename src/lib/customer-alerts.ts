@@ -1,12 +1,14 @@
 import { sendWhatsappMessage } from "./whatsapp";
 import { sendSmsMessage } from "./sms";
-import { getSettings, formatINR } from "./settings";
+import { sendMessengerMessage, getMessengerPsid } from "./messenger";
+import { getSettings, formatINR, type AppSettings } from "./settings";
 
 /**
  * Customer order-status alerts via SMS + WhatsApp. Used at every milestone —
- * order placed, out for delivery, delivered — through whichever channels the
- * store has enabled (Admin → Settings). External I/O never fails the caller;
- * every sender catches its own errors and this helper swallows failures.
+ * order placed (with the proof-of-delivery PIN), out for delivery, delivered —
+ * through whichever channels the store has enabled (Admin → Settings). External
+ * I/O never fails the caller; every sender catches its own errors and this
+ * helper swallows failures.
  */
 export type CustomerOrderStatus = "PLACED" | "OUT_FOR_DELIVERY" | "DELIVERED";
 
@@ -16,6 +18,7 @@ export type OrderLike = {
   eta?: string | null;
   deliveryPin?: string | null;
   paymentMethod?: string;
+  userId?: string | null;
 };
 
 export function buildCustomerOrderMessage(
@@ -30,6 +33,9 @@ export function buildCustomerOrderMessage(
         `🌙 Order confirmed! Your Night Corner order ${order.orderNumber} is in.`,
         `Total: ${formatINR(order.total)}${order.paymentMethod ? ` · ${order.paymentMethod}` : ""}`,
         order.eta ? `Estimated delivery: ${order.eta}.` : "",
+        order.deliveryPin
+          ? `🔑 Your delivery PIN: ${order.deliveryPin} — keep it ready. Your delivery person will ask for it at handover.`
+          : "",
         `Track live: ${trackUrl}`,
       ]
         .filter(Boolean)
@@ -63,8 +69,56 @@ export async function notifyCustomerOrderStatus(
   const settings = await getSettings().catch(() => null);
   if (!settings) return;
   const msg = buildCustomerOrderMessage(order, status, origin);
+  await sendToCustomerPhone(mobile, msg, settings, { userId: order.userId });
+}
+
+/** Compact message for the "Resend PIN" action (the original confirmation
+ * message was missed or deleted). Sends only the PIN + how to use it. */
+export function buildDeliveryPinMessage(order: OrderLike, origin: string): string {
+  const trackUrl = `${origin}/track-order?order=${order.orderNumber}`;
+  return [
+    `🔑 Your Night Corner delivery PIN for order ${order.orderNumber}: ${order.deliveryPin}`,
+    "Share it with your delivery person at handover — and don't share it with anyone else.",
+    order.eta ? `Estimated delivery: ${order.eta}.` : "",
+    `Track live: ${trackUrl}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** Re-sends just the delivery PIN to the customer's phone via the store's
+ * enabled channels (WhatsApp and/or SMS). Swallows failures like the other
+ * senders — external I/O never fails the caller. */
+export async function resendCustomerDeliveryPin(
+  mobile: string,
+  order: OrderLike,
+  origin: string
+): Promise<void> {
+  if (!mobile || !order.deliveryPin) return;
+  const settings = await getSettings().catch(() => null);
+  if (!settings) return;
+  await sendToCustomerPhone(mobile, buildDeliveryPinMessage(order, origin), settings, {
+    userId: order.userId,
+  });
+}
+
+/** Shared sender: fans the message out to whichever channels the store has
+ * enabled — WhatsApp, SMS, and Messenger (when a PSID is known for this
+ * customer) — never throwing on external failures. */
+async function sendToCustomerPhone(
+  mobile: string,
+  msg: string,
+  settings: AppSettings,
+  opts?: { userId?: string | null }
+): Promise<void> {
   const sends: Promise<unknown>[] = [];
   if (settings.notifyWhatsapp) sends.push(sendWhatsappMessage(mobile, msg));
   if (settings.notifySms) sends.push(sendSmsMessage(mobile, msg));
+  if (settings.notifyMessenger) {
+    // Messenger needs the customer's PSID — silently skipped until their
+    // Messenger chat is linked (webhook / Connect on Messenger link).
+    const psid = await getMessengerPsid({ mobile, userId: opts?.userId });
+    if (psid) sends.push(sendMessengerMessage(psid, msg));
+  }
   await Promise.all(sends).catch(() => {});
 }

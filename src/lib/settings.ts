@@ -38,6 +38,7 @@ export type AppSettings = {
   notifyEmail: boolean;
   notifyWhatsapp: boolean;
   notifySms: boolean;
+  notifyMessenger: boolean; // Meta Messenger (needs a captured PSID for the customer)
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -76,6 +77,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifyEmail: false,
   notifyWhatsapp: true,
   notifySms: false,
+  notifyMessenger: false,
 };
 
 const KEY = "app_settings";

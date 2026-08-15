@@ -8,6 +8,7 @@ import { STATUS_FLOW } from "@/lib/types";
 import { statusLabel } from "@/lib/orders";
 import { OrderTimeline } from "@/components/account/order-timeline";
 import { DeliveryRating } from "@/components/account/delivery-rating";
+import { ResendPinButton } from "@/components/account/resend-pin-button";
 import { KeyRound, MapPin, Printer, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -53,8 +54,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
       <OrderTimeline currentStatus={order.status} flow={STATUS_FLOW} />
 
-      {/* Proof-of-delivery PIN — the delivery person asks for this at handover */}
-      {order.deliveryPin && ["OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status) && (
+      {/* Proof-of-delivery PIN — generated at placement, sent to the customer's
+          phone, and asked for by the delivery person at handover. Hidden once
+          the order is cancelled/refunded. */}
+      {order.deliveryPin && !["CANCELLED", "REFUNDED"].includes(order.status) && (
         <div className="card flex flex-wrap items-center justify-between gap-3 p-5">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
@@ -71,14 +74,17 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               <p className="text-xs text-slate-400">
                 {order.status === "DELIVERED"
                   ? "This order was confirmed with this PIN."
-                  : "Share this PIN with your delivery person to confirm handover."}
+                  : "Share this PIN with your delivery person at handover — it was also sent to your phone."}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2 ring-1 ring-emerald-500/30">
-            <span className="font-display text-2xl font-extrabold tracking-[0.3em] text-emerald-300">
-              {order.deliveryPin}
-            </span>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2 ring-1 ring-emerald-500/30">
+              <span className="font-display text-2xl font-extrabold tracking-[0.3em] text-emerald-300">
+                {order.deliveryPin}
+              </span>
+            </div>
+            {order.status !== "DELIVERED" && <ResendPinButton orderId={order.id} />}
           </div>
         </div>
       )}

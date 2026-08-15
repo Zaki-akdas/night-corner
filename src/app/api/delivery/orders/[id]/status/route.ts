@@ -16,7 +16,8 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 const schema = z.object({
   status: z.enum(["OUT_FOR_DELIVERY", "DELIVERED"]),
   deliveryPhotoUrl: z.string().url().optional(),
-  // Four digits remains valid for orders created before the six-digit upgrade.
+  // 4-digit PINs are current; 6-digit values remain valid for legacy orders
+  // created before the 4-digit format was reintroduced.
   deliveryPin: z.string().regex(/^\d{4,6}$/).optional(),
 });
 

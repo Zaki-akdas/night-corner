@@ -25,14 +25,14 @@ const schema = z.object({
 });
 
 /**
- * Generates a customer-friendly delivery PIN using Node's cryptographic random
- * source. We also check every existing order so a PIN is never intentionally
- * reused. Six digits gives the customer a simple code while greatly reducing
- * accidental guesses compared with the former four-digit value.
+ * Generates a customer-friendly 4-digit delivery PIN using Node's cryptographic
+ * random source. We also check every existing order so a PIN is never
+ * intentionally reused. Four digits keeps it easy for the customer to read out
+ * to the delivery person at handover — the classic food-delivery PIN format.
  */
 async function generateUniqueDeliveryPin(tx: Prisma.TransactionClient): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const pin = String(randomInt(100_000, 1_000_000));
+    const pin = String(randomInt(1000, 10_000));
     const existing = await tx.order.findFirst({ where: { deliveryPin: pin }, select: { id: true } });
     if (!existing) return pin;
   }
@@ -198,7 +198,7 @@ export async function POST(req: Request) {
           userId: session.user.id,
           type: "ORDER",
           title: "Order confirmed 🎉",
-          body: `Your order ${orderNumber} has been placed.`,
+          body: `Your order ${orderNumber} has been placed. 🔑 Delivery PIN: ${result.deliveryPin} — keep it ready; your delivery person will ask for it at handover.`,
         },
       });
       await logActivity({
@@ -240,6 +240,9 @@ export async function POST(req: Request) {
     return NextResponse.json({
       orderId: result.id,
       orderNumber: result.orderNumber,
+      // 4-digit proof-of-delivery PIN the customer keeps for the delivery
+      // person — also delivered to their phone via WhatsApp/SMS.
+      deliveryPin: result.deliveryPin,
     });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });

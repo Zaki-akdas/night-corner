@@ -24,6 +24,7 @@ export function GeneralSettingsForm({ initial }: { initial: AppSettings }) {
         notifyEmail: s.notifyEmail,
         notifyWhatsapp: s.notifyWhatsapp,
         notifySms: s.notifySms,
+        notifyMessenger: s.notifyMessenger,
       }),
     });
     setSaving(false);
@@ -55,6 +56,7 @@ export function GeneralSettingsForm({ initial }: { initial: AppSettings }) {
         <Toggle label="Email notifications" on={s.notifyEmail} onClick={() => set("notifyEmail", !s.notifyEmail)} />
         <Toggle label="WhatsApp notifications" on={s.notifyWhatsapp} onClick={() => set("notifyWhatsapp", !s.notifyWhatsapp)} />
         <Toggle label="SMS notifications" on={s.notifySms} onClick={() => set("notifySms", !s.notifySms)} />
+        <Toggle label="Messenger notifications" on={s.notifyMessenger} onClick={() => set("notifyMessenger", !s.notifyMessenger)} />
       </section>
 
       <button onClick={save} disabled={saving} className="btn-primary">

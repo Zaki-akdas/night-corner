@@ -138,6 +138,12 @@ NEXT_PUBLIC_WHATSAPP_NUMBER="918989418270"
 # SMS (Fast2SMS — customer delivery alerts AND store-owner new-order alerts when notifySms is on)
 FAST2SMS_API_KEY
 
+# Messenger (Meta) — customer delivery alerts when notifyMessenger is on
+# MESSENGER_PAGE_ID (public; used for the m.me connect link)
+# MESSENGER_PAGE_TOKEN (Page access token — graph.facebook.com/v19.0/me/messages)
+# MESSENGER_WEBHOOK_VERIFY_TOKEN (your chosen string; echoed on webhook verification)
+# MESSENGER_APP_SECRET (validates X-Hub-Signature-256 on webhook POSTs)
+
 ADMIN_EMAIL="admin@nightcorner.in"
 SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD / SEED_ADMIN_NAME
 ```
@@ -149,9 +155,22 @@ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD / SEED_ADMIN_NAME
 
 ## 📸 Proof of delivery (photo + PIN)
 
-Every order gets a **4-digit delivery PIN** at checkout, shown to the customer on
-`/account/orders/{id}`. Before a delivery person can mark an order **Delivered**
-they must collect and submit:
+Every order gets a **4-digit delivery PIN** generated at checkout. The PIN is
+sent to the customer's phone (WhatsApp and/or SMS, per the store toggles) the
+moment the order is placed, shown again on `/account/orders/{id}` and on the
+checkout confirmation screen, so they always have it at handover. If the
+customer misses the message, a **Resend PIN** button on `/account/orders/{id}`
+re-sends just the PIN to their phone — throttled to once every 2 minutes so
+paid SMS/WhatsApp can't be spammed (cooldown tracked in the activity log).
+
+Riders are reminded to collect it: a chip on the delivery dashboard card, a
+highlighted banner inside the **Mark Delivered** flow, and — when the rider
+grants browser permission (prompted on first interaction with the dashboard) —
+a **system notification** that surfaces the PIN reminder even when the tab is
+minimized. The PIN value itself is never shown to the rider.
+
+Before a delivery person can mark an order **Delivered** they must collect and
+submit:
 
 1. **A delivery photo** — uploaded to Supabase Storage (public `delivery-proofs`
    bucket) via `/api/delivery/orders/{id}/photo`, then attached to the order.
@@ -173,8 +192,7 @@ are intentionally immutable — the app never deletes them.
 
 ## 🛵 Customer delivery notifications
 
-When a delivery person marks an order **Out for Delivery**, the customer is
-notified on the phone number saved with their delivery address:
+The customer is notified on the phone number saved with their delivery address:
 
 - **WhatsApp** (if `notifyWhatsapp` is enabled in Admin → Settings) — sent via the
   WhatsApp Business Cloud API when `WHATSAPP_API_TOKEN` + `WHATSAPP_BUSINESS_NUMBER_ID`
@@ -182,11 +200,21 @@ notified on the phone number saved with their delivery address:
   never breaks.
 - **SMS** (if `notifySms` is enabled) — sent via Fast2SMS when `FAST2SMS_API_KEY`
   is set; without a key it's a demo no-op.
+- **Messenger** (if `notifyMessenger` is enabled) — sent via the Meta Graph API
+  when `MESSENGER_PAGE_TOKEN` is set. Messenger addresses Page-Scoped IDs, not
+  phone numbers, so a customer must first link their chat: either they message
+  the Page quoting their order number (the `/api/webhooks/messenger` webhook
+  picks it up and links the PSID to the order's mobile) or they tap **Connect
+  on Messenger** in Account Settings, which opens an `m.me` deep link whose `ref`
+  carries their userId. Until a PSID is linked the channel is silently skipped;
+  without a token it's a demo no-op.
 
-The message includes the order number, the ETA, and a live tracking link
-(`/track-order`). Both channels are non-blocking — external delivery failures
-never affect the status update. The in-app notification and admin activity log
-are unaffected.
+The **order-confirmation message** (sent the moment an order is placed) carries
+the order number, ETA, tracking link, and the **4-digit delivery PIN** the
+delivery person will ask for at handover. When the order goes **Out for
+Delivery**, the customer is reminded of the PIN again. All channels are
+non-blocking — external delivery failures never affect the order or the status
+update. The in-app notification and admin activity log are unaffected.
 
 ---
 

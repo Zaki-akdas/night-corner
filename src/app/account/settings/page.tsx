@@ -1,7 +1,7 @@
 "use client";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Facebook, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 
 export default function AccountSettingsPage() {
@@ -10,6 +10,14 @@ export default function AccountSettingsPage() {
   const [email] = useState(session?.user?.email ?? "");
   const [saving, setSaving] = useState(false);
   const toast = useToast();
+
+  const [connectUrl, setConnectUrl] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/messenger/connect-link")
+      .then((r) => r.json())
+      .then((d) => setConnectUrl(d.url ?? null))
+      .catch(() => {});
+  }, []);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +50,26 @@ export default function AccountSettingsPage() {
           {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save Changes"}
         </button>
       </form>
+
+      <div className="card mt-6 max-w-lg space-y-3 p-5">
+        <h2 className="font-bold text-white">Messenger updates</h2>
+        <p className="text-sm text-slate-400">
+          Get order updates and your delivery PIN in Messenger too. Tap the button, then send any
+          message to the page — we&apos;ll link your account automatically.
+        </p>
+        {connectUrl ? (
+          <a
+            href={connectUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn inline-flex items-center gap-2"
+          >
+            <Facebook className="h-4 w-4 text-blue-400" /> Connect on Messenger
+          </a>
+        ) : (
+          <p className="text-xs text-slate-500">Messenger isn&apos;t configured on this store yet.</p>
+        )}
+      </div>
     </div>
   );
 }
