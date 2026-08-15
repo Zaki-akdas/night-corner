@@ -229,6 +229,12 @@ Schema changes ship automatically: the build script runs `prisma generate && nod
 
 ---
 
+## ⏱️ Uptime monitoring
+
+- **Vercel Cron Job** — `/api/cron/uptime` (scheduled every minute via `vercel.json`) pings the homepage and key public APIs and raises an alert (admin activity log + in-app notification) when any returns a 5xx, a 404 on a known-good path, or fails to respond. Alerts are deduped to one per 15 minutes while the site stays down, and a "recovered" notification fires when health returns. The route always answers 200 so Vercel doesn't retry it. Set `CRON_SECRET` in Vercel to lock the endpoint to real cron invocations (Vercel sends `Authorization: Bearer <CRON_SECRET>`); without it the route is open, matching the messenger webhook pattern.
+- **Standalone script** — `npm run uptime:check` (`scripts/uptime-monitor.mjs`) runs the same checks from any machine or scheduler: `--interval 60` loops every minute, `--json` for machine-readable output, exit code 0 = healthy / 1 = failing. Configure with `UPTIME_BASE_URL` and `UPTIME_ENDPOINTS`.
+- **Plan note** — per-minute cron scheduling requires the Vercel **Pro** plan; Hobby accounts are limited to one cron run per day and deployments with more frequent schedules are rejected. The standalone script has no such limit.
+
 ## 🧱 Tech stack
 
 - **Framework:** Next.js 14 App Router, React 18, TypeScript
