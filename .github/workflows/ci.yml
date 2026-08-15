@@ -1,4 +1,5 @@
 name: CI
+# [smoke2] re-verify preview e2e with the resolve fix on main
 
 on:
   push:
