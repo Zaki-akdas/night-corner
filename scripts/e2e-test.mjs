@@ -255,6 +255,11 @@ async function cleanupRemoteData(prisma, userId, orderId, originalSettings) {
     await prisma.user.delete({ where: { id: userId } }).catch(() => {});
     ok("removed test user");
   }
+  // Messenger identities captured by the webhook tests + activity rows left
+  // behind for the test order/user (no FK, so the cascade above misses them).
+  await prisma.messengerIdentity.deleteMany({ where: { psid: { in: ["PSID_E2E_001", "PSID_DEGRADED"] } } }).catch(() => {});
+  if (orderId) await prisma.activityLog.deleteMany({ where: { entityId: orderId } }).catch(() => {});
+  if (userId) await prisma.activityLog.deleteMany({ where: { userId } }).catch(() => {});
   await prisma.user.delete({ where: { email: ADMIN_EMAIL } }).catch(() => {});
   await prisma.user.delete({ where: { email: STAFF_EMAIL } }).catch(() => {});
   await prisma.product.deleteMany({ where: { sku: { startsWith: "TEST-" } } });
@@ -600,6 +605,13 @@ async function main() {
       : "");
   if (!TEST_URL) throw new Error("no test database: set E2E_TEST_DB_URL or DIRECT_URL in .env");
 
+  // Remote mode runs against a live deployment, whose app reads/writes the
+  // database's default schema (public). Derive that URL by dropping the
+  // throwaway ?schema= parameter used for local runs.
+  const PROD_URL = TEST_URL.replace(/([?&])schema=[^&#]*/i, "$1").replace(/[?&]$/, "");
+
+  const CHECK_SCHEMA = REMOTE_MODE ? "public" : SCHEMA;
+
   log(REMOTE_MODE ? `remote mode → ${BASE}` : `local mode → ${BASE}`);
   log(`test database: ${TEST_URL.replace(/:[^:@/]+@/, ":***@")}`);
 
@@ -619,30 +631,37 @@ async function main() {
 
   // 1. Ensure schema + tables exist (idempotent; in remote mode the schema is
   // pre-created so preview builds pass — this only syncs tables).
-  log("syncing schema & tables (prisma db push)…");
-  const push = spawnSync("npx prisma db push --skip-generate --accept-data-loss", {
+  if (REMOTE_MODE) {
+    log("remote mode: the deployment owns its schema — skipping db push");
+  } else {
+    log("syncing schema & tables (prisma db push)…");
+    const push = spawnSync("npx prisma db push --skip-generate --accept-data-loss", {
     cwd: ROOT,
     shell: true,
     env: { ...process.env, DATABASE_URL: TEST_URL, DIRECT_URL: TEST_URL },
     stdio: "inherit",
     timeout: 240_000,
   });
-  if (push.status !== 0) throw new Error("prisma db push failed");
+    if (push.status !== 0) throw new Error("prisma db push failed");
+  }
 
   // 2. Seed minimal data (category, 2 products, open-shop settings) — upserts
   // so repeated runs are safe.
   log("seeding test data…");
-  process.env.DATABASE_URL = TEST_URL;
-  process.env.DIRECT_URL = TEST_URL;
+  // Remote mode seeds/verifies/cleans up against the deployment's own schema
+  // (production public); local mode uses the throwaway test_e2e schema.
+  const DB_URL = REMOTE_MODE ? PROD_URL : TEST_URL;
+  process.env.DATABASE_URL = DB_URL;
+  process.env.DIRECT_URL = DB_URL;
   const prisma = new PrismaClient();
 
   // 2a. Post-provisioning smoke check: MessengerIdentity must exist in the
   // test schema (guards schema.prisma drift — its absence breaks the
   // Messenger webhook/connect-link at runtime).
   const miRows = await prisma.$queryRawUnsafe(
-    `SELECT COUNT(*)::int AS n FROM pg_tables WHERE schemaname = '${SCHEMA}' AND tablename = 'MessengerIdentity'`
+    `SELECT COUNT(*)::int AS n FROM pg_tables WHERE schemaname = '${CHECK_SCHEMA}' AND tablename = 'MessengerIdentity'`
   );
-  assert(miRows[0]?.n === 1, "test schema has the MessengerIdentity table");
+  assert(miRows[0]?.n === 1, `${REMOTE_MODE ? "production" : "test"} schema has the MessengerIdentity table`);
 
   const category = await prisma.category.upsert({
     where: { slug: "test-category" },
@@ -892,7 +911,10 @@ async function main() {
     // Degraded mode: when the MessengerIdentity table is missing (a database
     // that hasn't run the messenger migration), the webhook must acknowledge
     // Meta gracefully with linking disabled instead of erroring.
-    log("messenger webhook: degraded mode (table missing)…");
+    if (REMOTE_MODE) {
+      log("messenger webhook: degraded mode skipped in remote mode (would drop the live table)");
+    } else {
+      log("messenger webhook: degraded mode (table missing)…");
     await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "${SCHEMA}"."MessengerIdentity"`);
     const degradedRes = await request("/api/webhooks/messenger", {
       method: "POST",
@@ -928,7 +950,8 @@ async function main() {
     );
     await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "MessengerIdentity_psid_key" ON "${SCHEMA}"."MessengerIdentity"("psid")`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessengerIdentity_userId_idx" ON "${SCHEMA}"."MessengerIdentity"("userId")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessengerIdentity_mobile_idx" ON "${SCHEMA}"."MessengerIdentity"("mobile")`);
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessengerIdentity_mobile_idx" ON "${SCHEMA}"."MessengerIdentity"("mobile")`);
+    }
 
     log("messenger webhook: PSID capture…");
     const whRes = await request("/api/webhooks/messenger", {
