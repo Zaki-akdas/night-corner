@@ -26,6 +26,9 @@ export default async function DeliveryLayout({ children }: { children: React.Rea
             <Link href="/" className="btn-ghost px-2 py-1.5 text-xs sm:px-3">
               Store
             </Link>
+            <Link href="/delivery/stats" className="btn-ghost px-2 py-1.5 text-xs text-neon-purple sm:px-3">
+              My Stats
+            </Link>
             <Link href="/api/auth/signout" className="btn-ghost px-2 py-1.5 text-xs text-rose-300 sm:px-3">
               Sign out
             </Link>

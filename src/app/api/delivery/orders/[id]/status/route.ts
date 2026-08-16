@@ -46,6 +46,28 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     );
   }
 
+  // Claim on action: when a rider moves an unassigned order forward, it
+  // belongs to them from that point on (matches the accept flow).
+  if (staff.role !== "ADMIN" && !order.assignedTo) {
+    const claim = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        assignedTo: staff.id,
+        assignedToName: staff.name || staff.email || null,
+      },
+    });
+    order.assignedTo = claim.assignedTo;
+    order.assignedToName = claim.assignedToName;
+    await logActivity({
+      userId: staff.id,
+      userName: staff.name ?? "Delivery Staff",
+      action: "ASSIGN_DELIVERY",
+      entity: "Order",
+      entityId: order.id,
+      meta: { orderNumber: order.orderNumber, assignedTo: staff.id, via: "STATUS_CLAIM" },
+    }).catch(() => {});
+  }
+
   // Proof of delivery: a photo and the customer's 4-digit PIN are required
   // before an order can be marked Delivered.
   if (newStatus === "DELIVERED") {

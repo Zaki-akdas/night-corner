@@ -413,6 +413,10 @@ async function sweepDynamicRoutes(ctx) {
     // ── delivery API (bogus id → 404 proves params resolve + lookup runs) ──
     { pattern: "/api/delivery/orders/[id]/status", method: "PATCH", label: "delivery status PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/status", { jar: staff, body: { status: "OUT_FOR_DELIVERY" } }), allowed: [404] },
     { pattern: "/api/delivery/orders/[id]/photo", method: "POST", label: "delivery photo POST (staff, bogus → 404)", run: () => P("POST", "/api/delivery/orders/not-a-real-id/photo", { jar: staff }), allowed: [404] },
+    { pattern: "/api/delivery/orders/[id]/accept", method: "PATCH", label: "delivery accept PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/accept", { jar: staff }), allowed: [404] },
+    // ── pincode lookup API ──
+    { pattern: "/api/pincode/[code]", method: "GET", label: "pincode GET (valid → 200)", run: () => P("GET", "/api/pincode/462016"), allowed: [200] },
+    { pattern: "/api/pincode/[code]", method: "GET", label: "pincode GET (bogus → 404)", run: () => P("GET", "/api/pincode/999999"), allowed: [404] },
     // ── customer API ──
     { pattern: "/api/orders/[id]/invoice", method: "GET", label: "invoice GET (customer)", run: () => P("GET", `/api/orders/${orderId}/invoice`, { jar: customer }), allowed: [200] },
     { pattern: "/api/orders/[id]/rating", method: "PATCH", label: "order rating PATCH (customer, bogus → 404)", run: () => P("PATCH", "/api/orders/not-a-real-id/rating", { jar: customer, body: { rating: 5 } }), allowed: [404] },
@@ -842,6 +846,42 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
       }
     }
     }
+  }
+
+  // Rider claim flow — Accepting an unassigned order assigns it to the rider.
+  try {
+    const rider1 = await prisma.user.findUnique({ where: { email: STAFF_EMAIL } });
+    const claimProduct = await prisma.product.findFirst();
+    const claimOrder = await prisma.order.create({
+      data: {
+        orderNumber: `NC-CLAIM-${Date.now()}`,
+        status: "PLACED",
+        paymentMethod: "COD",
+        paymentStatus: "PENDING",
+        subtotal: 90,
+        deliveryCharge: 10,
+        tax: 0,
+        total: 100,
+        userId,
+        items: {
+          create: {
+            productId: claimProduct.id, name: claimProduct.name, sku: claimProduct.sku, image: claimProduct.image,
+            unitPrice: 90, quantity: 1, lineTotal: 90,
+          },
+        },
+      },
+    });
+    const acceptRes = await request(`/api/delivery/orders/${claimOrder.id}/accept`, { jar: staffJar, method: "PATCH" });
+    const afterClaim = await prisma.order.findUnique({ where: { id: claimOrder.id } });
+    const claimed = acceptRes.status === 200 && afterClaim?.assignedTo === rider1.id && afterClaim.assignedToName != null;
+    if (claimed) ok("rider claims an unassigned order via Accept (assignedTo locked to the rider)");
+    else { failures++; fail(`accept flow failed (PATCH ${acceptRes.status}, claimed: ${claimed})`); }
+    await prisma.orderItem.deleteMany({ where: { orderId: claimOrder.id } }).catch(() => {});
+    await prisma.order.delete({ where: { id: claimOrder.id } }).catch(() => {});
+    await prisma.activityLog.deleteMany({ where: { entityId: claimOrder.id } }).catch(() => {});
+  } catch (e) {
+    failures++;
+    fail(`rider claim-flow check failed — ${(e.message || "").split("\n")[0]}`);
   }
 
   await browser.close().catch(() => {});

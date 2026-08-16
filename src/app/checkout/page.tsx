@@ -18,6 +18,7 @@ import { useCart } from "@/components/cart/cart-context";
 import { formatINR } from "@/lib/settings";
 import { useToast } from "@/components/ui/toast";
 import { useOpenStatus } from "@/hooks/use-open-status";
+import { lookupPincode } from "@/lib/pincode-autofill";
 import { motion } from "framer-motion";
 
 type Address = {
@@ -66,6 +67,22 @@ export default function CheckoutPage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [editingAddr, setEditingAddr] = useState<Partial<Address> | null>(null);
+  const [pinAuto, setPinAuto] = useState<string>();
+
+  // When the customer enters a 6-digit pincode, fill city/state/area from the
+  // pincode database so the address is quick to complete.
+  const autofillFromPincode = async (code: string) => {
+    if (!/^d{6}$/.test(code)) return;
+    const info = await lookupPincode(code);
+    if (!info) return;
+    setEditingAddr((a) => ({
+      ...(a ?? {}),
+      city: a?.city ? a.city : info.city,
+      state: a?.state ? a.state : info.state,
+      area: a?.area ? a.area : info.areas[0] ?? "",
+    }));
+    setPinAuto(`Filled from pincode ${code}: ${info.city}, ${info.state}`);
+  };
   const [locating, setLocating] = useState(false);
   const [savingAddr, setSavingAddr] = useState(false);
   const [patchingLocation, setPatchingLocation] = useState<string | null>(null); // address id being updated
@@ -560,7 +577,8 @@ export default function CheckoutPage() {
                     <Field label="Landmark"><input className="input" value={editingAddr.landmark ?? ""} onChange={(e) => setEditingAddr({ ...editingAddr, landmark: e.target.value })} /></Field>
                     <Field label="City*"><input className="input" value={editingAddr.city ?? ""} onChange={(e) => setEditingAddr({ ...editingAddr, city: e.target.value })} /></Field>
                     <Field label="State*"><input className="input" value={editingAddr.state ?? ""} onChange={(e) => setEditingAddr({ ...editingAddr, state: e.target.value })} /></Field>
-                    <Field label="PIN Code*"><input className="input" value={editingAddr.pincode ?? ""} onChange={(e) => setEditingAddr({ ...editingAddr, pincode: e.target.value })} /></Field>
+                    <Field label="PIN Code*"><input className="input" value={editingAddr.pincode ?? ""} onChange={(e) => { setEditingAddr({ ...editingAddr, pincode: e.target.value }); setPinAuto(""); }} onBlur={(e) => autofillFromPincode(e.target.value)} placeholder="6-digit" /></Field>
+                    {pinAuto && <p className="col-span-full text-[11px] font-medium text-emerald-300">{pinAuto}</p>}
                     <Field label="Delivery instructions"><input className="input" value={editingAddr.instructions ?? ""} onChange={(e) => setEditingAddr({ ...editingAddr, instructions: e.target.value })} /></Field>
                   </div>
                   <div className="mt-3 space-y-3">

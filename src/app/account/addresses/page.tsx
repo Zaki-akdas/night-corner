@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Trash2, Plus, MapPin, Star, Locate, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { lookupPincode } from "@/lib/pincode-autofill";
 import { RefreshButton } from "@/components/ui/refresh-button";
 
 type Address = {
@@ -51,6 +52,19 @@ export default function AddressesPage() {
         toast.push({ type: "error", message: "Could not get location" });
       }
     );
+  };
+
+  // Entering a 6-digit pincode fills city/state/area automatically.
+  const autofillFromPincode = async (code: string) => {
+    if (!/^d{6}$/.test(code)) return;
+    const info = await lookupPincode(code);
+    if (!info) return;
+    setEditing((e) => ({
+      ...(e ?? {}),
+      city: e?.city ? e.city : info.city,
+      state: e?.state ? e.state : info.state,
+      area: e?.area ? e.area : info.areas[0] ?? "",
+    }));
   };
 
   const save = async () => {
@@ -145,7 +159,8 @@ export default function AddressesPage() {
               <Inp label="Landmark" v={editing.landmark ?? ""} k="landmark" set={setEditing} />
               <Inp label="City*" v={editing.city} k="city" set={setEditing} />
               <Inp label="State*" v={editing.state} k="state" set={setEditing} />
-              <Inp label="PIN Code*" v={editing.pincode} k="pincode" set={setEditing} />
+              <Inp label="PIN Code*" v={editing.pincode} k="pincode" set={setEditing} onBlur={(v) => autofillFromPincode(v)} />
+              <p className="text-[11px] text-slate-500">Enter a 6-digit PIN — city, state and area fill in automatically.</p>
             </div>
             <button onClick={useLocation} disabled={locating} className="btn-ghost mt-3 py-2 text-sm">
               {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Locate className="h-4 w-4" />}
@@ -170,11 +185,13 @@ function Inp({
   v,
   k,
   set,
+  onBlur,
 }: {
   label: string;
   v: string | undefined;
   k: keyof Address;
   set: React.Dispatch<React.SetStateAction<Partial<Address> | null>>;
+  onBlur?: (value: string) => void;
 }) {
   return (
     <label className="block">
@@ -183,6 +200,7 @@ function Inp({
         className="input"
         value={v ?? ""}
         onChange={(e) => set((p) => ({ ...(p ?? {}), [k]: e.target.value }))}
+        onBlur={(e) => onBlur?.(e.target.value)}
       />
     </label>
   );

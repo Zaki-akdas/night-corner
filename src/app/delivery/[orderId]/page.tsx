@@ -13,6 +13,7 @@ import {
   mapsDirectionsUrl,
 } from "@/lib/address";
 import { DeliveryStatusActions } from "@/components/delivery/status-actions";
+import { AcceptOrderButton } from "@/components/delivery/accept-button";
 import {
   ArrowLeft,
   Bike,
@@ -96,6 +97,17 @@ export default async function DeliveryOrderPage({
               </a>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Available order — rider can claim it before acting on it */}
+      {user.role !== "ADMIN" && !order.assignedTo && (
+        <div className="card flex flex-col items-center gap-2 border-amber-400/30 bg-amber-500/10 p-6 text-center">
+          <p className="font-bold text-white">This order is available</p>
+          <p className="max-w-md text-sm text-slate-400">
+            Accept it to claim it — it will be assigned to you and stop showing to other riders.
+          </p>
+          <AcceptOrderButton orderId={order.id} orderNumber={order.orderNumber} />
         </div>
       )}
 

@@ -8,7 +8,8 @@ import { parseAddressSnapshot, formatAddressLine } from "@/lib/address";
 import { AutoRefresh } from "@/components/delivery/auto-refresh";
 import { FilterBar } from "@/components/delivery/filter-bar";
 import { DeliveryStatusActions } from "@/components/delivery/status-actions";
-import { Bike, Clock, KeyRound, MapPin, Package, Phone, UserCheck, UserX } from "lucide-react";
+import { AcceptOrderButton } from "@/components/delivery/accept-button";
+import { Clock, Handshake, Inbox, KeyRound, Layers, MapPin, Package, Phone, UserCheck, UserX } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -55,9 +56,9 @@ export default async function DeliveryDashboardPage({
     else if (assignee === "unassigned") where.assignedTo = null;
     else if (assignee) where.assignedTo = assignee;
   } else {
-    // Staff see the unassigned pool plus their own assigned orders, so
-    // fresh PLACED orders always appear on the dashboard. A rider still
-    // can't browse another rider's assigned work.
+    // Riders see their own assigned work plus the available (unassigned)
+    // pool. Accepting an available order claims it — it then belongs to the
+    // accepting rider and disappears from the shared pool.
     if (assignee === "me") where.assignedTo = user.id;
     else if (assignee === "unassigned") where.assignedTo = null;
     else where.OR = [{ assignedTo: user.id }, { assignedTo: null }];
@@ -125,6 +126,136 @@ export default async function DeliveryDashboardPage({
     return (Date.now() - start.getTime()) / 60000 > avgDeliveryMin;
   }).length;
 
+  // Riders get their claimed work first, then the available pool.
+  const mine = user.role === "ADMIN" ? [] : orders.filter((o) => o.assignedTo === user.id);
+  const available = user.role === "ADMIN" ? [] : orders.filter((o) => !o.assignedTo);
+  const adminList = user.role === "ADMIN" ? orders : [];
+
+  const OrderCard = ({
+    o,
+    isAvailable,
+  }: {
+    o: (typeof orders)[number];
+    isAvailable: boolean;
+  }) => {
+    const addr = parseAddressSnapshot(o.addressSnapshot);
+    const line = formatAddressLine(addr);
+    return (
+      <div
+        key={o.id}
+        data-order-number={o.orderNumber}
+        data-order-status={o.status}
+        data-order-id={o.id}
+        className={`card space-y-3 p-5 transition hover:border-neon-blue/50 ${isAvailable ? "ring-1 ring-amber-500/20" : ""}`}
+      >
+        <Link href={`/delivery/${o.id}`} className="group block space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-display text-lg font-extrabold text-white">{o.orderNumber}</div>
+              <div className="text-xs text-slate-400">
+                {o.items.length} item{o.items.length === 1 ? "" : "s"} · {formatINR(o.total)} ·{" "}
+                {o.paymentMethod}
+              </div>
+            </div>
+            <span
+              className={`chip ${
+                o.status === "OUT_FOR_DELIVERY"
+                  ? "bg-neon-blue/20 text-neon-blue"
+                  : "bg-neon-purple/20 text-neon-purple"
+              }`}
+            >
+              {statusLabel(o.status)}
+            </span>
+          </div>
+
+          <div className="flex items-start gap-2 text-sm text-slate-300">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-blue" />
+            <span className="line-clamp-2">{line ?? "No address on file"}</span>
+          </div>
+
+          {o.assignedToName ? (
+            <div className="flex items-center gap-1.5 text-xs text-neon-blue">
+              <UserCheck className="h-3.5 w-3.5" />
+              <span className="font-semibold">{o.assignedToName}</span>
+              <span className="text-slate-500">· assigned</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-amber-300/80">
+              <UserX className="h-3.5 w-3.5" />
+              {isAvailable ? "Available — tap Accept to claim it" : "Unassigned"}
+            </div>
+          )}
+
+          {o.eta && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Package className="h-3.5 w-3.5" /> ETA {o.eta}
+            </div>
+          )}
+
+          {o.status === "OUT_FOR_DELIVERY" &&
+            (() => {
+              if (avgDeliveryMin == null) return null;
+              const start = o.outForDeliveryAt ?? o.createdAt;
+              const elapsedMin = (Date.now() - start.getTime()) / 60000;
+              if (elapsedMin <= avgDeliveryMin) return null;
+              return (
+                <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-300 ring-1 ring-amber-500/30">
+                  <Clock className="h-3.5 w-3.5" />
+                  Running late · {Math.round(elapsedMin)} min out (avg {Math.round(avgDeliveryMin)} min)
+                </div>
+              );
+            })()}
+        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Reminder only — the PIN value itself is never shown to the rider. */}
+          {o.deliveryPin && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-500/30">
+              <KeyRound className="h-3.5 w-3.5" />
+              Delivery PIN required
+            </span>
+          )}
+          {/* One-tap call so the rider can ask the customer for the PIN right away. */}
+          {o.deliveryPin && addr?.mobile && (
+            <a
+              href={`tel:${addr.mobile}`}
+              aria-label={`Call ${addr.mobile} to ask for the delivery PIN`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-neon-blue/15 px-2 py-1 text-xs font-semibold text-neon-blue ring-1 ring-neon-blue/30 transition hover:bg-neon-blue/25"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Call for PIN
+            </a>
+          )}
+          {isAvailable && !hasActiveFilters && <AcceptOrderButton orderId={o.id} orderNumber={o.orderNumber} compact />}
+        </div>
+        <DeliveryStatusActions
+          orderId={o.id}
+          currentStatus={o.status}
+          compact
+          customerMobile={addr?.mobile ?? ""}
+        />
+      </div>
+    );
+  };
+
+  const emptyState = (title: string, sub: string) => (
+    <div className="card flex flex-col items-center gap-3 p-12 text-center">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10">
+        <Inbox className="h-7 w-7 text-emerald-400" />
+      </span>
+      <p className="font-semibold text-white">{title}</p>
+      <p className="max-w-sm text-sm text-slate-400">{sub}</p>
+    </div>
+  );
+
+  const grid = (list: (typeof orders)[number][], availableFlag: boolean) =>
+    list.length === 0 ? null : (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {list.map((o) => (
+          <OrderCard key={o.id} o={o} isAvailable={availableFlag} />
+        ))}
+      </div>
+    );
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -150,117 +281,39 @@ export default async function DeliveryDashboardPage({
       />
 
       {orders.length === 0 ? (
-        <div className="card flex flex-col items-center gap-3 p-12 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10">
-            <Bike className="h-7 w-7 text-emerald-400" />
-          </span>
-          <p className="font-semibold text-white">{hasActiveFilters ? "No orders match these filters" : "All caught up!"}</p>
-          <p className="max-w-sm text-sm text-slate-400">
-            {hasActiveFilters
-              ? "Try widening the filters above — or clear them to see everything."
-              : "New orders will appear here automatically — no need to refresh."}
-          </p>
-        </div>
+        emptyState(
+          hasActiveFilters ? "No orders match these filters" : "All caught up!",
+          hasActiveFilters
+            ? "Try widening the filters above — or clear them to see everything."
+            : "New orders will appear here automatically — no need to refresh."
+        )
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {orders.map((o) => {
-            const addr = parseAddressSnapshot(o.addressSnapshot);
-            const line = formatAddressLine(addr);
-            return (
-              <div
-                key={o.id}
-                data-order-number={o.orderNumber}
-                data-order-status={o.status}
-                data-order-id={o.id}
-                className="card space-y-3 p-5 transition hover:border-neon-blue/50"
-              >
-                <Link href={`/delivery/${o.id}`} className="group block space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-display text-lg font-extrabold text-white">{o.orderNumber}</div>
-                      <div className="text-xs text-slate-400">
-                        {o.items.length} item{o.items.length === 1 ? "" : "s"} · {formatINR(o.total)} ·{" "}
-                        {o.paymentMethod}
-                      </div>
-                    </div>
-                    <span
-                      className={`chip ${
-                        o.status === "OUT_FOR_DELIVERY"
-                          ? "bg-neon-blue/20 text-neon-blue"
-                          : "bg-neon-purple/20 text-neon-purple"
-                      }`}
-                    >
-                      {statusLabel(o.status)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start gap-2 text-sm text-slate-300">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-blue" />
-                    <span className="line-clamp-2">{line ?? "No address on file"}</span>
-                  </div>
-
-                  {o.assignedToName ? (
-                    <div className="flex items-center gap-1.5 text-xs text-neon-blue">
-                      <UserCheck className="h-3.5 w-3.5" />
-                      <span className="font-semibold">{o.assignedToName}</span>
-                      <span className="text-slate-500">· assigned</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                      <UserX className="h-3.5 w-3.5" /> Unassigned
-                    </div>
-                  )}
-
-                  {o.eta && (
-                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                      <Package className="h-3.5 w-3.5" /> ETA {o.eta}
-                    </div>
-                  )}
-
-                  {o.status === "OUT_FOR_DELIVERY" &&
-                    (() => {
-                      if (avgDeliveryMin == null) return null;
-                      const start = o.outForDeliveryAt ?? o.createdAt;
-                      const elapsedMin = (Date.now() - start.getTime()) / 60000;
-                      if (elapsedMin <= avgDeliveryMin) return null;
-                      return (
-                        <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-300 ring-1 ring-amber-500/30">
-                          <Clock className="h-3.5 w-3.5" />
-                          Running late · {Math.round(elapsedMin)} min out (avg {Math.round(avgDeliveryMin)} min)
-                        </div>
-                      );
-                    })()}
-                </Link>
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Reminder only — the PIN value itself is never shown to the rider. */}
-                  {o.deliveryPin && (
-                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-500/30">
-                      <KeyRound className="h-3.5 w-3.5" />
-                      Delivery PIN required
-                    </span>
-                  )}
-                  {/* One-tap call so the rider can ask the customer for the PIN right away. */}
-                  {o.deliveryPin && addr?.mobile && (
-                    <a
-                      href={`tel:${addr.mobile}`}
-                      aria-label={`Call ${addr.mobile} to ask for the delivery PIN`}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-neon-blue/15 px-2 py-1 text-xs font-semibold text-neon-blue ring-1 ring-neon-blue/30 transition hover:bg-neon-blue/25"
-                    >
-                      <Phone className="h-3.5 w-3.5" />
-                      Call for PIN
-                    </a>
-                  )}
-                </div>
-                <DeliveryStatusActions
-                  orderId={o.id}
-                  currentStatus={o.status}
-                  compact
-                  customerMobile={addr?.mobile ?? ""}
-                />
-              </div>
-            );
-          })}
-        </div>
+        <>
+          {user.role !== "ADMIN" && (
+            <>
+              {mine.length > 0 && (
+                <section>
+                  <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-bold uppercase tracking-widest text-neon-blue">
+                    <Layers className="h-4 w-4" /> My Deliveries ({mine.length})
+                  </h2>
+                  {grid(mine, false)}
+                </section>
+              )}
+              {available.length > 0 && (
+                <section>
+                  <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-bold uppercase tracking-widest text-amber-300">
+                    <Handshake className="h-4 w-4" /> Available orders ({available.length})
+                  </h2>
+                  {grid(available, true)}
+                </section>
+              )}
+              {mine.length === 0 && available.length === 0 && (
+                emptyState("Nothing to deliver", "Orders assigned to you or left available will show up here.")
+              )}
+            </>
+          )}
+          {user.role === "ADMIN" && grid(adminList, false)}
+        </>
       )}
     </div>
   );
