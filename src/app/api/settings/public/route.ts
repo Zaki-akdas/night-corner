@@ -13,7 +13,6 @@ export async function GET() {
     whatsappNumber: s.whatsappNumber,
     maxRadiusKm: s.maxRadiusKm,
     freeDeliveryAbove: s.freeDeliveryAbove,
-    minOrderAmount: s.minOrderAmount,
     taxPercent: s.taxPercent,
   });
 }

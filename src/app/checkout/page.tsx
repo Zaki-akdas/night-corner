@@ -9,7 +9,6 @@ import {
   CreditCard,
   CheckCircle2,
   Locate,
-  ShieldAlert,
   Tag,
   Loader2,
   Moon,
@@ -47,8 +46,6 @@ type Quote = {
   freeDelivery: boolean;
   distanceKm: number;
   lines: { name: string; quantity: number; unitPrice: number; lineTotal: number }[];
-  minOrderMet: boolean;
-  minOrderAmount: number;
   freeDeliveryAbove: number;
   taxPercent: number;
   couponCode?: string;
@@ -673,12 +670,6 @@ export default function CheckoutPage() {
                         <p className="text-sm text-slate-400">
                           Estimated delivery in about 30–40 minutes.
                         </p>
-                        {!quote.minOrderMet && (
-                          <div className="mt-2 flex items-center gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-200">
-                            <ShieldAlert className="h-4 w-4" />
-                            Minimum order is {formatINR(quote.minOrderAmount)}. Add {formatINR(quote.minOrderAmount - quote.subtotal)} more.
-                          </div>
-                        )}
                         {quote.freeDelivery && (
                           <div className="mt-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
                             🎉 You unlocked FREE delivery!
@@ -713,7 +704,7 @@ export default function CheckoutPage() {
                 <button onClick={() => setStep(1)} className="btn-ghost">Back</button>
                 <button
                   onClick={() => setStep(3)}
-                  disabled={!quote || !quote.minOrderMet}
+                  disabled={!quote}
                   className="btn-primary flex-1"
                 >
                   Continue to Payment

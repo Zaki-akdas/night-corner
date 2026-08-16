@@ -74,7 +74,7 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
           <span className="label">Shop address</span>
           <input className="input" value={s.shopAddress} onChange={(e) => set("shopAddress", e.target.value)} />
         </label>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="label">Latitude</span>
             <input type="number" step="0.000001" className="input" value={s.shopLat} onChange={(e) => set("shopLat", Number(e.target.value))} />
@@ -94,10 +94,6 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
       <section className="card space-y-4 p-5">
         <h2 className="font-bold text-white">Delivery Charges</h2>
         <div className="grid gap-4 sm:grid-cols-3">
-          <label className="block">
-            <span className="label">Min order (₹)</span>
-            <input type="number" className="input" value={s.minOrderAmount} onChange={(e) => set("minOrderAmount", Number(e.target.value))} />
-          </label>
           <label className="block">
             <span className="label">Free delivery above (₹)</span>
             <input type="number" className="input" value={s.freeDeliveryAbove} onChange={(e) => set("freeDeliveryAbove", Number(e.target.value))} />

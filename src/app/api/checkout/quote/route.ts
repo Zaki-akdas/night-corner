@@ -42,8 +42,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({
       ...pricing,
-      minOrderMet: pricing.subtotal >= settings.minOrderAmount,
-      minOrderAmount: settings.minOrderAmount,
       freeDeliveryAbove: settings.freeDeliveryAbove,
       taxPercent: settings.taxPercent,
     });

@@ -89,13 +89,6 @@ export async function POST(req: Request) {
       lng: address.lng,
       couponCode,
     });
-    if (pricing.subtotal < settings.minOrderAmount) {
-      return NextResponse.json(
-        { error: `Minimum order is ₹${settings.minOrderAmount}` },
-        { status: 400 }
-      );
-    }
-
     // Atomic-ish order creation with stock re-check & deduction.
     const orderNumber = await generateOrderNumber();
     const result = await prisma.$transaction(async (tx) => {
