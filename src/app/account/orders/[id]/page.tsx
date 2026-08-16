@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/admin";
 import { formatINR, getSettings } from "@/lib/settings";
 import { paymentMethodLabel, statusLabel } from "@/lib/orders";
-import { upiPayLink } from "@/lib/upi";
+import { PayNowButton } from "@/components/payment/pay-now-button";
 import { STATUS_FLOW } from "@/lib/types";
 import { OrderTimeline } from "@/components/account/order-timeline";
 import { DeliveryRating } from "@/components/account/delivery-rating";
@@ -133,7 +133,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
       <div className="card p-5">
         <h2 className="mb-3 font-bold text-white">Items</h2>
-      {["UPI", "SPLIT"].includes(order.paymentMethod) && order.paymentStatus !== "PAID" && settings.upiId && (
+      {["UPI", "SPLIT"].includes(order.paymentMethod) &&
+        order.paymentStatus !== "PAID" &&
+        !(order.paymentMethod === "SPLIT" && order.advanceReceivedAt) &&
+        settings.upiId && (
         <div className="card border border-neon-blue/30 bg-neon-blue/10 p-5">
           <h2 className="mb-2 flex items-center gap-2 font-bold text-white">
             <Smartphone className="h-4 w-4 text-neon-blue" /> Pay via UPI
@@ -149,12 +152,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               </>
             )}
           </p>
-          <a
-            href={upiPayLink(settings.upiId, order.paymentMethod === "SPLIT" ? order.advancePaid : order.total, `${order.orderNumber} ${order.paymentMethod === "SPLIT" ? "advance" : "payment"}`)}
-            className="btn-primary mt-3"
-          >
-            <Smartphone className="h-4 w-4" /> Pay now with UPI app
-          </a>
+          <PayNowButton
+            orderId={order.id}
+            orderNumber={order.orderNumber}
+            amount={order.paymentMethod === "SPLIT" ? order.advancePaid : order.total}
+            balance={order.paymentMethod === "SPLIT" ? order.balanceDue : undefined}
+            upiId={settings.upiId}
+            note={`${order.orderNumber} ${order.paymentMethod === "SPLIT" ? "advance" : "payment"}`}
+          />
         </div>
       )}
         <div className="space-y-3">

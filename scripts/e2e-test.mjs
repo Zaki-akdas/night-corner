@@ -411,6 +411,9 @@ async function sweepDynamicRoutes(ctx) {
     { pattern: "/api/admin/orders/[id]/status", method: "PATCH", label: "admin order status PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/status", { jar: admin, body: { status: "CONFIRMED" } }), allowed: [404] },
     { pattern: "/api/admin/orders/[id]/assign", method: "PATCH", label: "admin order assign PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/assign", { jar: admin, body: { assignedTo: null } }), allowed: [404] },
     { pattern: "/api/admin/orders/[id]/advance", method: "PATCH", label: "admin order advance PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/advance", { jar: admin, body: { received: true } }), allowed: [404] },
+    { pattern: "/api/payments/create", method: "POST", label: "payment create POST (customer, demo → 400)", run: () => P("POST", "/api/payments/create", { jar: customer, body: { orderId: "not-a-real-id" } }), allowed: [400] },
+    { pattern: "/api/payments/verify", method: "POST", label: "payment verify POST (customer, demo → 400)", run: () => P("POST", "/api/payments/verify", { jar: customer, body: { orderId: "not-a-real-id", razorpayPaymentId: "pay_x", razorpaySignature: "sig" } }), allowed: [400] },
+    { pattern: "/api/webhooks/razorpay", method: "POST", label: "razorpay webhook POST (demo → 200 ignored)", run: () => P("POST", "/api/webhooks/razorpay", { body: JSON.stringify({ event: "payment.captured", payload: {} }) }), allowed: [200] },
     // ── delivery API (bogus id → 404 proves params resolve + lookup runs) ──
     { pattern: "/api/delivery/orders/[id]/status", method: "PATCH", label: "delivery status PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/status", { jar: staff, body: { status: "OUT_FOR_DELIVERY" } }), allowed: [404] },
     { pattern: "/api/delivery/orders/[id]/accept", method: "PATCH", label: "delivery accept PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/accept", { jar: staff }), allowed: [404] },
@@ -1377,6 +1380,23 @@ async function main() {
       select: { advanceReceivedAt: true },
     });
     assert(!!advOrder2 && advOrder2.advanceReceivedAt === null, "advanceReceivedAt cleared on revert");
+
+    // 5b2. Payment gateway runs safely in demo mode (no keys configured):
+    // create/verify are disabled with a clear 400 and the webhook is
+    // acknowledged so the provider stops retrying.
+    const payCreateRes = await request("/api/payments/create", {
+      method: "POST",
+      jar,
+      body: JSON.stringify({ orderId: splitJson.orderId }),
+    });
+    assert(payCreateRes.status === 400, "payment create safely disabled without gateway keys");
+    const webhookRes = await request("/api/webhooks/razorpay", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-razorpay-signature": "deadbeef" },
+      body: JSON.stringify({ event: "payment.captured", payload: {} }),
+    });
+    assert(webhookRes.status === 200, "webhook acknowledged in demo mode (no secret)");
+
 
 
     const statusNotif = await prisma.notification.findFirst({

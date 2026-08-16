@@ -5,6 +5,7 @@ import { requireRole, logActivity, notifyAdmin } from "@/lib/admin";
 import { statusLabel } from "@/lib/orders";
 import { parseAddressSnapshot } from "@/lib/address";
 import { broadcastOrderUpdate } from "@/lib/realtime";
+import { gatewayConfigured } from "@/lib/payments";
 import { notifyCustomerOrderStatus } from "@/lib/customer-alerts";
 
 // Delivery staff may only move orders forward through the final two steps.
@@ -43,6 +44,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       },
       { status: 400 }
     );
+  }
+
+  // Gateway-verified payments: with the gateway configured, a UPI order must
+  // be paid and a split order's advance confirmed before it can be dispatched.
+  if (newStatus === "OUT_FOR_DELIVERY" && gatewayConfigured()) {
+    if (order.paymentMethod === "UPI" && order.paymentStatus !== "PAID") {
+      return NextResponse.json(
+        { error: "This UPI order is not paid yet — it can only be dispatched after the payment is verified" },
+        { status: 400 }
+      );
+    }
+    if (order.paymentMethod === "SPLIT" && !order.advanceReceivedAt) {
+      return NextResponse.json(
+        { error: "The UPI advance is not confirmed yet — confirm it before dispatching" },
+        { status: 400 }
+      );
+    }
   }
 
   // Claim on action: when a rider moves an unassigned order forward, it

@@ -34,8 +34,10 @@ NextAuth. Open **10 PM – 6 AM**, delivery **within 10 KM**.
   (NIGHT10, FREESHIP seeded) — **all recomputed on the server**.
 - Payments: COD, full UPI, or **Split** — pay the delivery fee (or an
   admin-configured advance) via UPI now and the balance cash on delivery.
-  One-tap upi:// deep links open the customer's UPI app with the amount
-  pre-filled; Online gateway stays configurable via env vars.
+  With the **Razorpay-compatible gateway configured**, UPI/split payments are
+  verified by captured payments (client signature + webhook) and orders can't
+  be dispatched until verified; without gateway keys the one-tap upi:// deep
+  link keeps the manual flow working.
 - Order confirmation, printable/downloadable HTML invoice (browser print-to-PDF),
   WhatsApp order notification to the business.
 
@@ -132,7 +134,17 @@ SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SUPABASE_JWKS_URL
 NEXT_PUBLIC_MAPS_API_KEY, MAPS_API_KEY
 
 # Payment gateway (Razorpay-compatible)
-NEXT_PUBLIC_PAYMENT_GATEWAY_KEY, PAYMENT_GATEWAY_SECRET
+# NEXT_PUBLIC_PAYMENT_GATEWAY_KEY = Razorpay Key ID
+# PAYMENT_GATEWAY_SECRET = Razorpay Key Secret
+#
+# When both are set, the checkout's "Pay now" opens the Razorpay checkout for
+# the exact amount (full total for UPI, the advance for split orders). Success
+# is verified by HMAC signature client-side AND by the payment.captured
+# webhook. Register the webhook in the Razorpay dashboard (Events →
+# payment.captured, order.paid) pointing at:
+#   https://<your-domain>/api/webhooks/razorpay
+# Orders can only be marked OUT_FOR_DELIVERY once the payment/advance is
+# verified. Without the keys everything falls back to the manual UPI flow.
 
 # WhatsApp Business Cloud API
 WHATSAPP_API_TOKEN, WHATSAPP_BUSINESS_NUMBER_ID

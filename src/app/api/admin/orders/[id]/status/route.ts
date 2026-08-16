@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, logActivity, notifyAdmin } from "@/lib/admin";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/types";
 import { broadcastOrderUpdate } from "@/lib/realtime";
+import { gatewayConfigured } from "@/lib/payments";
 
 const schema = z.object({
   status: z.enum(ORDER_STATUSES as [OrderStatus, ...OrderStatus[]]),
@@ -27,6 +28,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   const newStatus = parsed.data.status;
+
+  // Gateway-verified payments: with the gateway configured, a UPI order must
+  // be paid and a split order's advance confirmed before it can be dispatched.
+  if (newStatus === "OUT_FOR_DELIVERY" && gatewayConfigured()) {
+    if (order.paymentMethod === "UPI" && order.paymentStatus !== "PAID") {
+      return NextResponse.json(
+        { error: "This UPI order is not paid yet — it can only be dispatched after the payment is verified" },
+        { status: 400 }
+      );
+    }
+    if (order.paymentMethod === "SPLIT" && !order.advanceReceivedAt) {
+      return NextResponse.json(
+        { error: "The UPI advance is not confirmed yet — confirm it before dispatching" },
+        { status: 400 }
+      );
+    }
+  }
 
   // Proof of delivery: the customer's 4-digit delivery PIN is required before
   // DELIVERED — matches the delivery-app route so the admin panel can't

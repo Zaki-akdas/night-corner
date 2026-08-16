@@ -18,7 +18,8 @@ import { formatINR } from "@/lib/settings";
 import { useToast } from "@/components/ui/toast";
 import { useOpenStatus } from "@/hooks/use-open-status";
 import { lookupPincode } from "@/lib/pincode-autofill";
-import { computeSplitAmounts, upiPayLink } from "@/lib/upi";
+import { computeSplitAmounts } from "@/lib/upi";
+import { PayNowButton } from "@/components/payment/pay-now-button";
 import { motion } from "framer-motion";
 
 type Address = {
@@ -97,6 +98,8 @@ export default function CheckoutPage() {
   const [orderAdvance, setOrderAdvance] = useState(0);
   const [orderBalance, setOrderBalance] = useState(0);
   const [orderTotal, setOrderTotal] = useState(0);
+  const [upiPaid, setUpiPaid] = useState(false);
+  const [advanceVerified, setAdvanceVerified] = useState(false);
   const [paymentConfig, setPaymentConfig] = useState<{
     cod: boolean;
     upi: boolean;
@@ -830,7 +833,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               )}
-              {(payment === "UPI" || payment === "SPLIT") && orderUpiId && (
+              {(payment === "UPI" ? !upiPaid : payment === "SPLIT" ? !advanceVerified : false) && orderUpiId && (
                 <div className="mx-auto mt-5 w-full max-w-md rounded-2xl border border-neon-blue/30 bg-neon-blue/10 p-5 text-left">
                   <div className="text-xs font-semibold uppercase tracking-wider text-neon-blue">
                     {payment === "SPLIT" ? `Pay advance now · ${formatINR(orderAdvance)}` : "Pay now via UPI"}
@@ -846,17 +849,28 @@ export default function CheckoutPage() {
                       </>
                     )}
                   </p>
-                  <a
-                    href={upiPayLink(orderUpiId, payment === "SPLIT" ? orderAdvance : orderTotal, `${orderNumber} ${payment === "SPLIT" ? "advance" : "payment"}`)}
-                    className="btn-primary mt-3 w-full justify-center"
-                  >
-                    Pay now with UPI app
-                  </a>
+                  <PayNowButton
+                    orderId={orderId}
+                    orderNumber={orderNumber ?? ""}
+                    amount={payment === "SPLIT" ? orderAdvance : orderTotal}
+                    balance={payment === "SPLIT" ? orderBalance : undefined}
+                    upiId={orderUpiId}
+                    note={`${orderNumber} ${payment === "SPLIT" ? "advance" : "payment"}`}
+                    onVerified={() => {
+                      if (payment === "SPLIT") setAdvanceVerified(true);
+                      else setUpiPaid(true);
+                    }}
+                  />
                   <p className="mt-2 text-center text-[11px] text-slate-400">
-                    Opens your UPI app with the amount pre-filled — no QR scan needed.
+                    Paid via the secure payment gateway — the order is dispatched only after your payment is verified.
                   </p>
                 </div>
               )}
+              {(payment === "UPI" && upiPaid) || (payment === "SPLIT" && advanceVerified) ? (
+                <div className="mx-auto mt-5 w-fit rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-6 py-3 text-sm font-semibold text-emerald-200">
+                  {payment === "SPLIT" ? "UPI advance received ✓ · balance cash on delivery" : "Payment received ✓"}
+                </div>
+              ) : null}
               <p className="mt-4 text-sm text-slate-400">
                 We&apos;ve sent the order details and your delivery PIN to your phone. Track its progress live.
               </p>

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/admin";
 import { formatINR, getSettings } from "@/lib/settings";
 import { paymentMethodLabel, statusLabel } from "@/lib/orders";
+import { gatewayConfigured } from "@/lib/payments";
 import {
   parseAddressSnapshot,
   formatAddressLine,
@@ -286,6 +287,16 @@ export default async function DeliveryOrderPage({
             <div className="rounded-xl bg-warm-yellow/10 p-3 text-sm ring-1 ring-warm-yellow/30">
               <span className="font-bold text-warm-yellow">Collect {formatINR(order.balanceDue)} cash</span>{" "}
               <span className="text-slate-300">at handover · {formatINR(order.advancePaid)} already paid via UPI.</span>
+            </div>
+          )}
+          {gatewayConfigured() && order.paymentMethod === "UPI" && order.paymentStatus !== "PAID" && (
+            <div className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200 ring-1 ring-amber-500/30">
+              ⚠️ Awaiting UPI payment — this order can only be dispatched after the payment is verified.
+            </div>
+          )}
+          {gatewayConfigured() && order.paymentMethod === "SPLIT" && !order.advanceReceivedAt && (
+            <div className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200 ring-1 ring-amber-500/30">
+              ⚠️ UPI advance not confirmed — confirm it before dispatching this order.
             </div>
           )}
           {order.notes && (

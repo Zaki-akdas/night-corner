@@ -214,6 +214,7 @@ model Order {
   advancePaid     Float       @default(0)
   balanceDue      Float       @default(0)
   advanceReceivedAt DateTime? // set when admin confirms the split UPI advance arrived
+  paymentVerifiedAt DateTime? // set when the gateway verifies the UPI payment actually arrived
   couponCode      String?
   eta             String?
   notes           String?
