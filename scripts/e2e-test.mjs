@@ -1454,6 +1454,12 @@ async function main() {
       !/font-display text-2xl font-extrabold tracking-/.test(riderDetailHtml),
       "rider never sees a customer-style PIN display before handover"
     );
+    assert(
+      !riderDetailHtml.includes("Proof of Delivery") &&
+        !riderDetailHtml.includes("Delivery proof photo") &&
+        !riderDetailHtml.includes("deliveryPhotoUrl"),
+      "rider order page no longer shows any proof-of-delivery photo section"
+    );
 
     const ofdActivity = await prisma.activityLog.findFirst({
       where: { action: "ORDER_STATUS_CHANGED", entityId: orderId, meta: { contains: "OUT_FOR_DELIVERY" } },
