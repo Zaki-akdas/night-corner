@@ -68,12 +68,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }).catch(() => {});
   }
 
-  // Proof of delivery: a photo and the customer's 4-digit PIN are required
-  // before an order can be marked Delivered.
+  // Proof of delivery: the customer's 4-digit delivery PIN is required before
+  // an order can be marked Delivered.
   if (newStatus === "DELIVERED") {
-    if (!parsed.data.deliveryPhotoUrl || !parsed.data.deliveryPin) {
+    if (!parsed.data.deliveryPin) {
       return NextResponse.json(
-        { error: "Delivery photo and customer PIN are required" },
+        { error: "The customer's delivery PIN is required" },
         { status: 400 }
       );
     }

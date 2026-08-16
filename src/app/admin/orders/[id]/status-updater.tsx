@@ -7,7 +7,6 @@ import { Loader2 } from "lucide-react";
 export function OrderStatusUpdater({ orderId, current }: { orderId: string; current: string }) {
   const router = useRouter();
   const [status, setStatus] = useState(current);
-  const [photoUrl, setPhotoUrl] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -16,8 +15,8 @@ export function OrderStatusUpdater({ orderId, current }: { orderId: string; curr
 
   const update = async (newStatus: string) => {
     setError(null);
-    if (newStatus === "DELIVERED" && (!photoUrl.trim() || !pin.trim())) {
-      setError("A delivery photo URL and the customer's 4-digit PIN are required to mark DELIVERED.");
+    if (newStatus === "DELIVERED" && !pin.trim()) {
+      setError("The customer's 4-digit delivery PIN is required to mark DELIVERED.");
       return;
     }
     setLoading(true);
@@ -26,7 +25,7 @@ export function OrderStatusUpdater({ orderId, current }: { orderId: string; curr
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         status: newStatus,
-        ...(newStatus === "DELIVERED" ? { deliveryPhotoUrl: photoUrl.trim(), deliveryPin: pin.trim() } : {}),
+        ...(newStatus === "DELIVERED" ? { deliveryPin: pin.trim() } : {}),
       }),
     });
     setLoading(false);
@@ -55,15 +54,8 @@ export function OrderStatusUpdater({ orderId, current }: { orderId: string; curr
       {delivering && (
         <div className="mb-3 space-y-2 rounded border border-amber-500/40 bg-amber-500/10 p-3">
           <p className="text-xs text-amber-200">
-            Marking DELIVERED requires proof of delivery: a photo and the customer&apos;s 4-digit delivery PIN
-            (same rule as the delivery app).
+            Marking DELIVERED requires the customer&apos;s 4-digit delivery PIN (same rule as the delivery app).
           </p>
-          <input
-            value={photoUrl}
-            onChange={(e) => setPhotoUrl(e.target.value)}
-            placeholder="Delivery photo URL"
-            className="input text-sm"
-          />
           <input
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}

@@ -29,12 +29,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const newStatus = parsed.data.status;
 
-  // Proof of delivery: a photo and the customer's 4-digit PIN are required
-  // before DELIVERED — matches the delivery-app route so the admin panel can't
+  // Proof of delivery: the customer's 4-digit delivery PIN is required before
+  // DELIVERED — matches the delivery-app route so the admin panel can't
   // bypass the handover verification.
   if (newStatus === "DELIVERED") {
-    if (!parsed.data.deliveryPhotoUrl || !parsed.data.deliveryPin) {
-      return NextResponse.json({ error: "Delivery photo and customer PIN are required" }, { status: 400 });
+    if (!parsed.data.deliveryPin) {
+      return NextResponse.json({ error: "The customer's delivery PIN is required" }, { status: 400 });
     }
     if (!order.deliveryPin || parsed.data.deliveryPin.trim() !== order.deliveryPin) {
       return NextResponse.json({ error: "Incorrect delivery PIN — ask the customer" }, { status: 400 });

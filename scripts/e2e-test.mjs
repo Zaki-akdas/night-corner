@@ -587,7 +587,7 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
 
 
   // Admin UI guard — the OrderStatusUpdater must block a DELIVERED save
-  // without photo + PIN client-side (no PATCH leaves the browser), the same
+  // without the customer PIN client-side (no PATCH leaves the browser), the same
   // rule the delivery app enforces — not merely reject it server-side.
   let uiOrder = null;
   try {
@@ -643,14 +643,14 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
     await statusSelect.selectOption("DELIVERED");
     await page.waitForTimeout(300);
     await page.getByRole("button", { name: "Save Status" }).click();
-    const err = page.getByText(/A delivery photo URL and the customer's 4-digit PIN are required/);
+    const err = page.getByText(/The customer's 4-digit delivery PIN is required/);
     let errVisible = false;
     try {
       await err.waitFor({ state: "visible", timeout: 5_000 });
       errVisible = true;
     } catch { /* not visible */ }
     if (errVisible && patchCalls.length === 0) {
-      ok("admin UI blocks DELIVERED save without photo + PIN (client-side, no PATCH sent)");
+      ok("admin UI blocks DELIVERED save without PIN (client-side, no PATCH sent)");
     } else {
       failures++;
       fail(`admin UI did not block the proof-less DELIVERED save (error visible: ${errVisible}, PATCH calls: ${patchCalls.length})`);
@@ -663,7 +663,6 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
     (res) => res.request().method() === "PATCH" && /\/api\/admin\/orders\/[^/]+\/status/.test(res.url()),
     { timeout: 10_000 }
   );
-  await page.locator('input[placeholder="Delivery photo URL"]').fill("https://example.com/proof.jpg");
   await page.locator("input[placeholder=\"Customer's delivery PIN\"]").fill("9876");
   await page.getByRole("button", { name: "Save Status" }).click();
   let respOk = false;
@@ -675,10 +674,9 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
   const dbOk =
     !!after &&
     after.status === "DELIVERED" &&
-    after.deliveryPhotoUrl === "https://example.com/proof.jpg" &&
     !!after.deliveredAt;
   if (respOk && dbOk) {
-    ok("admin UI DELIVERED save succeeds with photo + correct PIN (PATCH 200, order DELIVERED)");
+    ok("admin UI DELIVERED save succeeds with correct PIN (PATCH 200, order DELIVERED)");
   } else {
     failures++;
     fail(`admin UI DELIVERED success path failed (PATCH ok: ${respOk}, DB delivered: ${dbOk})`);
@@ -754,72 +752,42 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
     await page.goto(`${BASE}/delivery/${staffOrder.id}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
     await page.waitForTimeout(1_500);
     await page.getByRole("button", { name: "Confirm Delivery" }).click();
-    const staffErr = page.getByText(/Please attach a delivery photo/);
+    const staffErr = page.getByText(/Enter the delivery PIN from the customer/);
     let staffBlocked = false;
     try {
       await staffErr.waitFor({ state: "visible", timeout: 5_000 });
       staffBlocked = true;
     } catch { /* not visible */ }
     if (staffBlocked && staffCalls.length === 0) {
-      ok("staff UI blocks proof-less DELIVERED (client-side, no photo upload / status PATCH)");
+      ok("staff UI blocks DELIVERED save without PIN (client-side, no status PATCH)");
     } else {
       failures++;
       fail(`staff UI did not block the proof-less DELIVERED save (error visible: ${staffBlocked}, requests: ${staffCalls.length})`);
     }
 
-    // Positive path — storage-dependent, mirroring the API flow's skip rule:
-    // probe the upload endpoint first; when storage is ready the rider UI
-    // must complete the full DELIVERED save once a photo + correct PIN are
-    // provided (real upload through the file input, then the status PATCH).
-    const tinyPng = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-      "base64"
+    // Positive path: the rider UI must complete the DELIVERED save once the
+    // correct PIN is provided (status PATCH fires, order becomes DELIVERED).
+    await page.locator('input[placeholder="Customer delivery PIN"]').fill("9876");
+    const staffRespPromise = page.waitForResponse(
+      (res) => res.request().method() === "PATCH" && /\/api\/delivery\/orders\/[^/]+\/status/.test(res.url()),
+      { timeout: 15_000 }
     );
-    const probeForm = new FormData();
-    probeForm.append("file", new Blob([tinyPng], { type: "image/png" }), "proof.png");
-    const probeRes = await request(`/api/delivery/orders/${staffOrder.id}/photo`, {
-      method: "POST",
-      jar: staffJar,
-      body: probeForm,
-    });
-    const probeJson = probeRes.status === 200 ? await probeRes.json() : null;
-    const staffStorageReady = probeRes.status === 200 && probeJson?.url?.includes("delivery-proofs");
-    if (probeJson?.url && probeJson.url.startsWith(`${String(dotEnv.SUPABASE_URL || "").replace(/\/$/, "")}/storage/v1/object/public/delivery-proofs/`)) {
-      staffProbeUrl = probeJson.url;
-    }
-    if (!staffStorageReady) {
-      log("⚠️ delivery-proofs storage not configured (probe HTTP " + probeRes.status + ") — skipping the staff UI success-path assertions. Create the Supabase bucket to enable them.");
+    await page.getByRole("button", { name: "Confirm Delivery" }).click();
+    let staffRespOk = false;
+    try {
+      const staffResp = await staffRespPromise;
+      staffRespOk = staffResp.status() === 200;
+    } catch { /* no status PATCH within timeout */ }
+    const staffAfter = await prisma.order.findUnique({ where: { id: staffOrder.id } });
+    const staffDbOk =
+      !!staffAfter &&
+      staffAfter.status === "DELIVERED" &&
+      !!staffAfter.deliveredAt;
+    if (staffRespOk && staffDbOk) {
+      ok("staff UI DELIVERED save succeeds with correct PIN (PATCH 200, order DELIVERED)");
     } else {
-      await page.locator('input[type="file"]').setInputFiles({
-        name: "proof.png",
-        mimeType: "image/png",
-        buffer: tinyPng,
-      });
-      await page.locator('input[placeholder="Customer delivery PIN"]').fill("9876");
-      const staffRespPromise = page.waitForResponse(
-        (res) => res.request().method() === "PATCH" && /\/api\/delivery\/orders\/[^/]+\/status/.test(res.url()),
-        { timeout: 15_000 }
-      );
-      await page.getByRole("button", { name: "Confirm Delivery" }).click();
-      let staffRespOk = false;
-      try {
-        const staffResp = await staffRespPromise;
-        staffRespOk = staffResp.status() === 200;
-      } catch { /* no status PATCH within timeout */ }
-      const staffAfter = await prisma.order.findUnique({ where: { id: staffOrder.id } });
-      const staffDbOk =
-        !!staffAfter &&
-        staffAfter.status === "DELIVERED" &&
-        !!staffAfter.deliveryPhotoUrl &&
-        staffAfter.deliveryPhotoUrl.includes("delivery-proofs") &&
-        !!staffAfter.deliveredAt;
-      if (staffRespOk && staffDbOk) {
-        ok("staff UI DELIVERED save succeeds with photo + correct PIN (upload + PATCH 200, order DELIVERED)");
-      } else {
-        failures++;
-        fail(`staff UI DELIVERED success path failed (PATCH ok: ${staffRespOk}, DB delivered: ${staffDbOk})`);
-      }
-      uiPhotoUrl = staffAfter?.deliveryPhotoUrl || "";
+      failures++;
+      fail(`staff UI DELIVERED success path failed (PATCH ok: ${staffRespOk}, DB delivered: ${staffDbOk})`);
     }
 
   } catch (e) {
@@ -1540,7 +1508,7 @@ async function main() {
       jar: staffJar,
       body: JSON.stringify({ status: "DELIVERED" }),
     });
-    assert(noPodRes.status === 400, "DELIVERED rejected without photo and PIN");
+    assert(noPodRes.status === 400, "DELIVERED rejected without the customer PIN");
 
     const wrongPinRes = await request(`/api/delivery/orders/${orderId}/status`, {
       method: "PATCH",
@@ -1553,69 +1521,25 @@ async function main() {
     });
     assert(wrongPinRes.status === 400, "wrong delivery PIN rejected");
 
-    // Staff uploads a tiny proof photo, then delivers with the correct PIN.
-    // The upload requires a configured storage backend (Supabase
-    // `delivery-proofs` bucket). When storage isn't provisioned, the
-    // photo-gated assertions are skipped with a warning so the rest of the
-    // suite still runs — the PIN/validation gates above still get covered.
-    const tinyPng = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-      "base64"
-    );
-    const photoForm = new FormData();
-    photoForm.append("file", new Blob([tinyPng], { type: "image/png" }), "proof.png");
-    const photoRes = await request(`/api/delivery/orders/${orderId}/photo`, {
-      method: "POST",
+    // Staff delivers with just the customer's PIN — no photo required.
+    const deliveredRes = await request(`/api/delivery/orders/${orderId}/status`, {
+      method: "PATCH",
       jar: staffJar,
-      body: photoForm,
+      body: JSON.stringify({ status: "DELIVERED", deliveryPin: ofdPin }),
     });
-    const photoJson = photoRes.status === 200 ? await photoRes.json() : null;
-    const storageReady = photoRes.status === 200 && photoJson?.url?.includes("delivery-proofs");
-    if (storageReady) {
-      assert(true, "staff uploads delivery photo");
-      assert(true, "photo upload returns a public storage URL");
-      uploadedPhotoUrl = photoJson.url;
-    } else {
-      log(
-        "⚠️ delivery-proofs storage not configured (photo upload HTTP " +
-          photoRes.status +
-          ") — skipping photo/DELIVERED assertions. Create the Supabase bucket to enable them."
-      );
-    }
-
-    const deliveredRes = storageReady
-      ? await request(`/api/delivery/orders/${orderId}/status`, {
-          method: "PATCH",
-          jar: staffJar,
-          body: JSON.stringify({
-            status: "DELIVERED",
-            deliveryPhotoUrl: photoJson.url,
-            deliveryPin: ofdPin,
-          }),
-        })
-      : null;
-    assert(!storageReady || deliveredRes.status === 200, "staff marks order DELIVERED with photo + PIN");
+    assert(deliveredRes.status === 200, "staff marks order DELIVERED with the customer PIN");
 
     const deliveredOrder = await prisma.order.findUnique({ where: { id: orderId } });
-    assert(
-      !storageReady || deliveredOrder.status === "DELIVERED",
-      `order status persisted (${deliveredOrder.status})`
-    );
-    assert(
-      !storageReady || deliveredOrder.deliveryPhotoUrl === photoJson.url,
-      "delivery photo URL persisted on the order"
-    );
+    assert(deliveredOrder.status === "DELIVERED", `order status persisted (${deliveredOrder.status})`);
 
     // DELIVERED also fires the customer SMS/WhatsApp senders in demo mode
     // (external — verified via live site; the in-app notification below is the
     // observable proxy).
-    if (storageReady) {
       const deliveredNotif = await prisma.notification.findFirst({
         where: { userId, type: "ORDER", body: { contains: "Delivered" } },
         orderBy: { createdAt: "desc" },
       });
       assert(!!deliveredNotif, "customer notified of delivery");
-    }
 
     // The customer's order page shows their delivery PIN (from placement
     // onward).
@@ -1624,7 +1548,6 @@ async function main() {
     assert(custOrderHtml.includes(ofdPin), "customer order page shows the delivery PIN");
 
     // The dashboard only lists active orders — a delivered order disappears.
-    if (storageReady) {
       const afterRes = await request("/delivery", { jar: staffJar });
       const afterHtml = await afterRes.text();
       assert(!afterHtml.includes(orderJson.orderNumber), "delivered order leaves the delivery dashboard");
@@ -1646,7 +1569,7 @@ async function main() {
         jar: adminJar2,
         body: JSON.stringify({ status: "DELIVERED" }),
       });
-      assert(adminNoProof.status === 400, "admin DELIVERED rejected without photo and PIN");
+      assert(adminNoProof.status === 400, "admin DELIVERED rejected without the customer PIN");
       const adminWrongPin = await request(`/api/admin/orders/${orderId}/status`, {
         method: "PATCH",
         jar: adminJar2,
@@ -1658,8 +1581,7 @@ async function main() {
         jar: adminJar2,
         body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: "https://example.com/proof.jpg", deliveryPin: ofdPin }),
       });
-      assert(adminProof.status === 200, "admin DELIVERED accepted with photo + correct PIN");
-    }
+      assert(adminProof.status === 200, "admin DELIVERED accepted with correct PIN");
 
     // 5e2. Dashboard filters: status / payment / time / sort.
     log("delivery dashboard filters…");
