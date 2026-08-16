@@ -94,7 +94,7 @@ function logoSvg({ icon = false } = {}) {
   </g>
 </svg>`;
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 110" width="420" height="110">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 110" width="448" height="110">
   <defs>
     <linearGradient id="txt" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%" stop-color="#c084fc"/><stop offset="50%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#fbbf24"/>
