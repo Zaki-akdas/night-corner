@@ -6,6 +6,7 @@ import { formatINR } from "@/lib/settings";
 import { paymentMethodLabel, statusLabel } from "@/lib/orders";
 import { OrderStatusUpdater } from "./status-updater";
 import { AssigneeSelect } from "./assignee-select";
+import { AdvanceReceivedButton } from "./advance-received";
 import { Download, MapPin, Phone } from "lucide-react";
 import { waMeLink } from "@/lib/whatsapp";
 
@@ -118,6 +119,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
             <h2 className="mb-3 font-bold text-white">Payment</h2>
             <p className="text-sm text-slate-300">{paymentMethodLabel(order.paymentMethod)} · {statusLabel(order.paymentStatus)}</p>
             {order.paymentMethod === "SPLIT" && order.advancePaid > 0 && (
+              <>
               <div className="mt-3 space-y-1 rounded-xl bg-white/5 p-3 text-sm">
                 <div className="flex justify-between text-emerald-300">
                   <span>Paid now (UPI)</span>
@@ -128,6 +130,16 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                   <span className="font-semibold">{formatINR(order.balanceDue)}</span>
                 </div>
               </div>
+              <div className="mt-3">
+                <AdvanceReceivedButton
+                  orderId={order.id}
+                  orderNumber={order.orderNumber}
+                  advance={order.advancePaid}
+                  balance={order.balanceDue}
+                  receivedAt={order.advanceReceivedAt}
+                />
+              </div>
+              </>
             )}
           </div>
 

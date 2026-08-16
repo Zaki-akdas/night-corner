@@ -410,6 +410,7 @@ async function sweepDynamicRoutes(ctx) {
     { pattern: "/api/admin/users/[id]", method: "PATCH", label: "user PATCH (admin, no-op role)", run: () => P("PATCH", `/api/admin/users/${userId}`, { jar: admin, body: { role: "CUSTOMER" } }), allowed: [200] },
     { pattern: "/api/admin/orders/[id]/status", method: "PATCH", label: "admin order status PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/status", { jar: admin, body: { status: "CONFIRMED" } }), allowed: [404] },
     { pattern: "/api/admin/orders/[id]/assign", method: "PATCH", label: "admin order assign PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/assign", { jar: admin, body: { assignedTo: null } }), allowed: [404] },
+    { pattern: "/api/admin/orders/[id]/advance", method: "PATCH", label: "admin order advance PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/advance", { jar: admin, body: { received: true } }), allowed: [404] },
     // ── delivery API (bogus id → 404 proves params resolve + lookup runs) ──
     { pattern: "/api/delivery/orders/[id]/status", method: "PATCH", label: "delivery status PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/status", { jar: staff, body: { status: "OUT_FOR_DELIVERY" } }), allowed: [404] },
     { pattern: "/api/delivery/orders/[id]/accept", method: "PATCH", label: "delivery accept PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/accept", { jar: staff }), allowed: [404] },
@@ -1337,6 +1338,46 @@ async function main() {
 
     const updatedOrder = await prisma.order.findUnique({ where: { id: orderId } });
     assert(updatedOrder.status === "CONFIRMED", `order status persisted as ${updatedOrder.status}`);
+
+    // 5b1. Admin "Mark UPI received" — lightweight manual advance confirmation
+    // (no gateway): customers are redirected away, admins set/revert the
+    // advanceReceivedAt timestamp, and non-split orders are rejected.
+    const advBad = await request(`/api/admin/orders/${splitJson.orderId}/advance`, {
+      method: "PATCH",
+      jar,
+      body: JSON.stringify({ received: true }),
+    });
+    assert(advBad.status === 307 || advBad.status === 302, "non-admin cannot confirm an advance (redirected)");
+    const advMark = await request(`/api/admin/orders/${splitJson.orderId}/advance`, {
+      method: "PATCH",
+      jar: adminJar,
+      body: JSON.stringify({ received: true }),
+    });
+    assert(advMark.status === 200, "admin marks the split advance as received");
+    const advOrder = await prisma.order.findUnique({
+      where: { id: splitJson.orderId },
+      select: { advanceReceivedAt: true, paymentMethod: true },
+    });
+    assert(!!advOrder && advOrder.paymentMethod === "SPLIT", "advance confirm only applies to split orders");
+    assert(!!advOrder && advOrder.advanceReceivedAt instanceof Date, "advanceReceivedAt timestamp persisted");
+    const advNonSplit = await request(`/api/admin/orders/${orderId}/advance`, {
+      method: "PATCH",
+      jar: adminJar,
+      body: JSON.stringify({ received: true }),
+    });
+    assert(advNonSplit.status === 400, "COD orders have no advance to confirm");
+    const advUnmark = await request(`/api/admin/orders/${splitJson.orderId}/advance`, {
+      method: "PATCH",
+      jar: adminJar,
+      body: JSON.stringify({ received: false }),
+    });
+    assert(advUnmark.status === 200, "admin can revert the advance confirmation");
+    const advOrder2 = await prisma.order.findUnique({
+      where: { id: splitJson.orderId },
+      select: { advanceReceivedAt: true },
+    });
+    assert(!!advOrder2 && advOrder2.advanceReceivedAt === null, "advanceReceivedAt cleared on revert");
+
 
     const statusNotif = await prisma.notification.findFirst({
       where: { userId, type: "ORDER", title: "Order update" },

@@ -115,6 +115,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <>
               <Row label="Paid now (UPI)" value={formatINR(order.advancePaid)} />
               <Row label="Cash on delivery" value={formatINR(order.balanceDue)} />
+              {order.advanceReceivedAt && (
+                <Row label="Advance received" value={new Date(order.advanceReceivedAt).toLocaleString("en-IN")} />
+              )}
             </>
           )}
           <Row label="Subtotal" value={formatINR(order.subtotal)} />

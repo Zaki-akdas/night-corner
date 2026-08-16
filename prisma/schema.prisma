@@ -213,6 +213,7 @@ model Order {
   // at checkout and the balance the customer pays cash on delivery.
   advancePaid     Float       @default(0)
   balanceDue      Float       @default(0)
+  advanceReceivedAt DateTime? // set when admin confirms the split UPI advance arrived
   couponCode      String?
   eta             String?
   notes           String?
