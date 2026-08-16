@@ -214,7 +214,6 @@ model Order {
   notes           String?
   invoicePdf      String?
   deliveryPin     String? // 4-digit PIN the customer shares with staff as proof-of-delivery
-  deliveryPhotoUrl String? // uploaded photo evidence taken at handover
   assignedTo      String? // delivery staff userId the admin routed this order to
   assignedToName  String? // denormalized delivery staff name (survives staff edits)
   outForDeliveryAt DateTime? // set when the order goes OUT_FOR_DELIVERY (delivery-time stats)
