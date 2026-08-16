@@ -44,6 +44,7 @@ export async function POST(req: Request) {
   await markPaymentVerified(order.id, {
     paymentRef: parsed.data.razorpayPaymentId,
     via: "CLIENT",
+    origin: new URL(req.url).origin,
   });
   return NextResponse.json({ ok: true });
 }

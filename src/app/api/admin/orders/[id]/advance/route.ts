@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, logActivity } from "@/lib/admin";
+import { formatINR } from "@/lib/settings";
+import { notifyCustomerAdvanceReceived } from "@/lib/customer-alerts";
 
 const schema = z.object({
   received: z.boolean(),
@@ -21,7 +23,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const order = await prisma.order.findUnique({ where: { id } });
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: { user: { select: { mobile: true } } },
+  });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
   if (order.paymentMethod !== "SPLIT") {
     return NextResponse.json(
@@ -30,11 +35,33 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     );
   }
 
+  const wasReceived = !!order.advanceReceivedAt;
   const advanceReceivedAt = parsed.data.received ? new Date() : null;
   const updated = await prisma.order.update({
     where: { id: order.id },
     data: { advanceReceivedAt },
   });
+
+  if (parsed.data.received && !wasReceived) {
+    // First-time confirmation — tell the customer on their phone (SMS /
+    // WhatsApp / Messenger per store settings) and in-app, mirroring the
+    // gateway-confirmed path in markPaymentVerified.
+    notifyCustomerAdvanceReceived(
+      order.user?.mobile ?? "",
+      order,
+      new URL(req.url).origin
+    ).catch(() => {});
+    await prisma.notification
+      .create({
+        data: {
+          userId: order.userId,
+          type: "ORDER",
+          title: "UPI advance confirmed ✓",
+          body: `Your UPI advance of ${formatINR(order.advancePaid)} for order ${order.orderNumber} is confirmed. Balance ${formatINR(order.balanceDue)} is cash on delivery.`,
+        },
+      })
+      .catch(() => {});
+  }
 
   await logActivity({
     userId: admin.id,

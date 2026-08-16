@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "./prisma";
 import { logActivity } from "./admin";
+import { notifyCustomerAdvanceReceived } from "./customer-alerts";
 
 /**
  * Razorpay-compatible payment gateway helpers. The gateway is OPTIONAL: when
@@ -86,7 +87,7 @@ export function verifyWebhookSignature(rawBody: string, signature: string): bool
  */
 export async function markPaymentVerified(
   orderId: string,
-  opts: { paymentRef: string; via: "WEBHOOK" | "CLIENT" }
+  opts: { paymentRef: string; via: "WEBHOOK" | "CLIENT"; origin?: string }
 ): Promise<{ changed: boolean }> {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order) throw new Error("Order not found");
@@ -104,6 +105,17 @@ export async function markPaymentVerified(
       ? { advanceReceivedAt: new Date() }
       : { paymentStatus: "PAID", paymentVerifiedAt: new Date() },
   });
+
+  if (isSplit && opts.origin) {
+    // Same SMS/WhatsApp confirmation the manual admin path sends — keep both
+    // confirmation routes consistent for the customer.
+    const customer = await prisma.user
+      .findUnique({ where: { id: order.userId }, select: { mobile: true } })
+      .catch(() => null);
+    if (customer?.mobile) {
+      notifyCustomerAdvanceReceived(customer.mobile, order, opts.origin).catch(() => {});
+    }
+  }
 
   try {
     await prisma.notification.create({

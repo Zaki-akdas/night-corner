@@ -38,7 +38,11 @@ export async function POST(req: Request) {
     const order = await prisma.order.findFirst({ where: { paymentId: gatewayOrderId } });
     if (!order) return NextResponse.json({ ok: true, ignored: true, reason: "unknown order" });
 
-    await markPaymentVerified(order.id, { paymentRef: paymentId, via: "WEBHOOK" });
+    await markPaymentVerified(order.id, {
+      paymentRef: paymentId,
+      via: "WEBHOOK",
+      origin: new URL(req.url).origin,
+    });
   }
 
   return NextResponse.json({ ok: true });

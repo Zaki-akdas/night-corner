@@ -112,6 +112,33 @@ export async function resendCustomerDeliveryPin(
   });
 }
 
+/** Confirmation message for a split order whose UPI advance the store received. */
+export function buildAdvanceReceivedMessage(order: OrderLike, origin: string): string {
+  const trackUrl = `${origin}/track-order?order=${order.orderNumber}`;
+  return [
+    `✅ UPI advance received for order ${order.orderNumber}!`,
+    `We've confirmed your advance of ${formatINR(order.advancePaid ?? 0)} via UPI.`,
+    `Balance ${formatINR(order.balanceDue ?? 0)} is cash on delivery.`,
+    `Track live: ${trackUrl}`,
+  ].join("\n");
+}
+
+/** Fires the advance-received confirmation to the customer's phone via the
+ * store's enabled channels (WhatsApp, SMS, Messenger) — mirroring the other
+ * order alerts. Never throws: external I/O failures are swallowed. */
+export async function notifyCustomerAdvanceReceived(
+  mobile: string,
+  order: OrderLike,
+  origin: string
+): Promise<void> {
+  if (!mobile) return;
+  const settings = await getSettings().catch(() => null);
+  if (!settings) return;
+  await sendToCustomerPhone(mobile, buildAdvanceReceivedMessage(order, origin), settings, {
+    userId: order.userId,
+  });
+}
+
 /** Shared sender: fans the message out to whichever channels the store has
  * enabled — WhatsApp, SMS, and Messenger (when a PSID is known for this
  * customer) — never throwing on external failures. */

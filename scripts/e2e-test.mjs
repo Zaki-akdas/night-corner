@@ -1363,6 +1363,14 @@ async function main() {
     });
     assert(!!advOrder && advOrder.paymentMethod === "SPLIT", "advance confirm only applies to split orders");
     assert(!!advOrder && advOrder.advanceReceivedAt instanceof Date, "advanceReceivedAt timestamp persisted");
+    const advNotif = await prisma.notification.findFirst({
+      where: { userId, body: { contains: "UPI advance of" } },
+      orderBy: { createdAt: "desc" },
+    });
+    assert(
+      !!advNotif && advNotif.body.includes(splitJson.orderNumber),
+      "customer notified when the UPI advance is confirmed"
+    );
     const advNonSplit = await request(`/api/admin/orders/${orderId}/advance`, {
       method: "PATCH",
       jar: adminJar,
