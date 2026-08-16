@@ -1715,7 +1715,48 @@ async function main() {
     // React inserts <!-- --> separators between text and expressions, so
     // compare against a comment-stripped copy of the dashboard HTML.
     const dashSplitText = dashSplit.replace(/<!-- -->/g, "");
-    assert(dashSplitText.includes("Collect ₹105 cash · ₹20 paid via UPI"), "delivery dashboard shows the cash to collect for split orders");
+    assert(
+      dashSplitText.includes("Collect ₹105 cash · advance unconfirmed"),
+      "delivery dashboard shows the cash to collect + unconfirmed advance for split orders"
+    );
+    assert(
+      dashUpi.replace(/<!-- -->/g, "").includes("Awaiting UPI payment"),
+      "delivery dashboard flags unpaid UPI orders for the rider"
+    );
+
+    // 5e3. Rider surfaces surface the advance state: once the store confirms
+    // the UPI advance, the dashboard badge flips to "received ✓" and the order
+    // detail page shows "Advance status: Received ✓"; reverting shows the
+    // awaiting state again.
+    const advRiderMark = await request(`/api/admin/orders/${filterSplit.id}/advance`, {
+      method: "PATCH",
+      jar: adminJar,
+      body: JSON.stringify({ received: true }),
+    });
+    assert(advRiderMark.status === 200, "admin confirms the split advance for the rider-visible test");
+    const dashSplit2Text = (
+      await (await request("/delivery?payment=SPLIT", { jar: staffJar })).text()
+    ).replace(/<!-- -->/g, "");
+    assert(
+      dashSplit2Text.includes("Collect ₹105 cash · advance received ✓"),
+      "dashboard badge flips to received ✓ once the store confirms the advance"
+    );
+    const riderSplitDetail = await (await request(`/delivery/${filterSplit.id}`, { jar: staffJar })).text();
+    assert(
+      riderSplitDetail.includes("Advance status") && riderSplitDetail.includes("Received ✓"),
+      "rider detail page shows the advance as received"
+    );
+    const advRiderRevert = await request(`/api/admin/orders/${filterSplit.id}/advance`, {
+      method: "PATCH",
+      jar: adminJar,
+      body: JSON.stringify({ received: false }),
+    });
+    assert(advRiderRevert.status === 200, "advance reverted after the rider-visible check");
+    const riderSplitDetail2 = await (await request(`/delivery/${filterSplit.id}`, { jar: staffJar })).text();
+    assert(
+      riderSplitDetail2.includes("Advance status") && riderSplitDetail2.includes("Awaiting confirmation"),
+      "rider detail page shows awaiting confirmation before the advance is confirmed"
+    );
 
     const dash1h = await (await request("/delivery?time=1h", { jar: staffJar })).text();
     assert(dash1h.includes("NC-TEST-COD-1") && !dash1h.includes("NC-TEST-UPI-1"), "time filter hides orders older than the window");

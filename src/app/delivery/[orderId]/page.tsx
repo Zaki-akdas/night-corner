@@ -275,18 +275,43 @@ export default async function DeliveryOrderPage({
                   <dt>Cash on delivery</dt>
                   <dd>{formatINR(order.balanceDue)}</dd>
                 </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-300">Advance status</dt>
+                  <dd className={order.advanceReceivedAt ? "text-emerald-300" : "text-warm-yellow"}>
+                    {order.advanceReceivedAt ? "Received ✓" : "Awaiting confirmation"}
+                  </dd>
+                </div>
               </>
             )}
             </div>
+            {order.paymentMethod === "UPI" && (
+              <div className="flex justify-between">
+                <dt className="text-slate-300">Payment status</dt>
+                <dd className={order.paymentStatus === "PAID" ? "text-emerald-300" : "text-warm-yellow"}>
+                  {order.paymentStatus === "PAID" ? "Paid ✓" : "Awaiting payment"}
+                </dd>
+              </div>
+            )}
             <div className="flex justify-between border-t border-white/10 pt-2 text-base font-bold text-white">
               <dt>Total</dt>
               <dd className="text-warm-yellow">{formatINR(order.total)}</dd>
             </div>
           </dl>
           {order.paymentMethod === "SPLIT" && order.balanceDue > 0 && (
-            <div className="rounded-xl bg-warm-yellow/10 p-3 text-sm ring-1 ring-warm-yellow/30">
-              <span className="font-bold text-warm-yellow">Collect {formatINR(order.balanceDue)} cash</span>{" "}
-              <span className="text-slate-300">at handover · {formatINR(order.advancePaid)} already paid via UPI.</span>
+            <div
+              className={`rounded-xl p-3 text-sm ring-1 ${
+                order.advanceReceivedAt
+                  ? "bg-emerald-500/10 ring-emerald-500/30"
+                  : "bg-warm-yellow/10 ring-warm-yellow/30"
+              }`}
+            >
+              <span className={`font-bold ${order.advanceReceivedAt ? "text-emerald-300" : "text-warm-yellow"}`}>
+                Collect {formatINR(order.balanceDue)} cash
+              </span>{" "}
+              <span className="text-slate-300">
+                at handover · {formatINR(order.advancePaid)} advance{" "}
+                {order.advanceReceivedAt ? "received ✓" : "— awaiting confirmation"}.
+              </span>
             </div>
           )}
           {gatewayConfigured() && order.paymentMethod === "UPI" && order.paymentStatus !== "PAID" && (

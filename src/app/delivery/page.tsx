@@ -9,7 +9,7 @@ import { AutoRefresh } from "@/components/delivery/auto-refresh";
 import { FilterBar } from "@/components/delivery/filter-bar";
 import { DeliveryStatusActions } from "@/components/delivery/status-actions";
 import { AcceptOrderButton } from "@/components/delivery/accept-button";
-import { Clock, HandCoins, Handshake, Inbox, KeyRound, Layers, MapPin, Package, Phone, UserCheck, UserX } from "lucide-react";
+import { BadgeCheck, Clock, HandCoins, Handshake, Inbox, KeyRound, Layers, MapPin, Package, Phone, UserCheck, UserX } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -156,9 +156,27 @@ export default async function DeliveryDashboardPage({
                 {o.items.length} item{o.items.length === 1 ? "" : "s"} · {formatINR(o.total)} ·{" "}
                 {paymentMethodLabel(o.paymentMethod)}
               {o.paymentMethod === "SPLIT" && o.balanceDue > 0 && (
-                <div className="inline-flex items-center gap-1.5 rounded-lg bg-warm-yellow/10 px-2 py-1 text-xs font-semibold text-warm-yellow ring-1 ring-warm-yellow/30">
-                  <HandCoins className="h-3.5 w-3.5" />
-                  Collect {formatINR(o.balanceDue)} cash · {formatINR(o.advancePaid)} paid via UPI
+                <div
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold ring-1 ${
+                    o.advanceReceivedAt
+                      ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30"
+                      : "bg-warm-yellow/10 text-warm-yellow ring-warm-yellow/30"
+                  }`}
+                >
+                  {o.advanceReceivedAt ? <BadgeCheck className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                  Collect {formatINR(o.balanceDue)} cash · advance {o.advanceReceivedAt ? "received ✓" : "unconfirmed"}
+                </div>
+              )}
+              {o.paymentMethod === "UPI" && (
+                <div
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold ring-1 ${
+                    o.paymentStatus === "PAID"
+                      ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30"
+                      : "bg-warm-yellow/10 text-warm-yellow ring-warm-yellow/30"
+                  }`}
+                >
+                  {o.paymentStatus === "PAID" ? <BadgeCheck className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                  {o.paymentStatus === "PAID" ? "Paid ✓ (UPI)" : "Awaiting UPI payment"}
                 </div>
               )}
               </div>
