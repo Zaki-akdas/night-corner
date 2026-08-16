@@ -40,11 +40,6 @@ jobs:
           # (the "restored app_settings to pre-run values" step), so the live
           # shop's hours/location are never left pointing at test values.
           E2E_TEST_DB_URL: ${{ secrets.PROD_E2E_TEST_DB_URL }}
-          # Supabase storage — lets the staff photo-upload success path run
-          # (and clean up after itself) instead of skipping.
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run test:e2e
 
       - name: Open an issue on failure

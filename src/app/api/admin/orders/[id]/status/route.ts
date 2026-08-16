@@ -7,10 +7,9 @@ import { broadcastOrderUpdate } from "@/lib/realtime";
 
 const schema = z.object({
   status: z.enum(ORDER_STATUSES as [OrderStatus, ...OrderStatus[]]),
-  // Proof of delivery — same requirements as the delivery-app route: a photo
-  // and the customer's 4-digit PIN are both required to mark an order
-  // DELIVERED. (6-digit PINs remain valid for legacy orders.)
-  deliveryPhotoUrl: z.string().url().optional(),
+  // Proof of delivery — same requirement as the delivery-app route: the
+  // customer's 4-digit PIN is required to mark an order DELIVERED.
+  // (6-digit PINs remain valid for legacy orders.)
   deliveryPin: z.string().regex(/^\d{4,6}$/).optional(),
 });
 
@@ -47,9 +46,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       data: {
         status: newStatus,
         ...(newStatus === "OUT_FOR_DELIVERY" && !order.outForDeliveryAt ? { outForDeliveryAt: new Date() } : {}),
-        ...(newStatus === "DELIVERED"
-          ? { deliveredAt: new Date(), deliveryPhotoUrl: parsed.data.deliveryPhotoUrl }
-          : {}),
+        ...(newStatus === "DELIVERED" ? { deliveredAt: new Date() } : {}),
       },
     });
 

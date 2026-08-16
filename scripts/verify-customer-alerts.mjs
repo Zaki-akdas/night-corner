@@ -100,7 +100,7 @@ try {
   const delRes = await fetch(BASE + "/api/delivery/orders/" + orderId + "/status", {
     method: "PATCH",
     headers: { "content-type": "application/json", cookie: staffJar },
-    body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: "https://example.com/proof.png", deliveryPin: order.deliveryPin }),
+    body: JSON.stringify({ status: "DELIVERED", deliveryPin: order.deliveryPin }),
   });
   const delJson = await delRes.json().catch(() => ({}));
   console.log("DELIVERED:", delRes.status, JSON.stringify(delJson));

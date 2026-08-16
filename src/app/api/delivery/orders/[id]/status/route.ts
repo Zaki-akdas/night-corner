@@ -15,7 +15,6 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 
 const schema = z.object({
   status: z.enum(["OUT_FOR_DELIVERY", "DELIVERED"]),
-  deliveryPhotoUrl: z.string().url().optional(),
   // 4-digit PINs are current; 6-digit values remain valid for legacy orders
   // created before the 4-digit format was reintroduced.
   deliveryPin: z.string().regex(/^\d{4,6}$/).optional(),
@@ -87,12 +86,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data: {
       status: newStatus,
       ...(newStatus === "OUT_FOR_DELIVERY" && !order.outForDeliveryAt ? { outForDeliveryAt: new Date() } : {}),
-      ...(newStatus === "DELIVERED"
-        ? {
-            deliveryPhotoUrl: parsed.data.deliveryPhotoUrl,
-            deliveredAt: new Date(),
-          }
-        : {}),
+      ...(newStatus === "DELIVERED" ? { deliveredAt: new Date() } : {}),
     },
   });
 

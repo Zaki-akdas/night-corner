@@ -31,13 +31,6 @@ jobs:
       E2E_TEST_DB_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=test_e2e
       NEXTAUTH_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
       NEXTAUTH_URL: http://localhost:3100
-      # Optional: set these GitHub secrets to also exercise the real delivery
-      # photo upload path. Without them the e2e skips photo/DELIVERED-storage
-      # assertions gracefully (same as a local run without storage config).
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v5

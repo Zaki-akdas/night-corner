@@ -18,11 +18,6 @@ const ADMIN_PASSWORD = process.env.LIVE_ADMIN_PASSWORD || "admin123";
 const STAFF_EMAIL = process.env.LIVE_STAFF_EMAIL || "delivery@nightcorner.in";
 const STAFF_PASSWORD = process.env.LIVE_STAFF_PASSWORD || "delivery123";
 
-// 1×1 transparent PNG used as the proof-of-delivery photo.
-const TINY_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64"
-);
 
 let failures = 0;
 const ok = (m) => console.log(`  \x1b[32m✓\x1b[0m ${m}`);
@@ -320,28 +315,13 @@ async function main() {
       ? ok(`delivery PIN issued and shown to the customer (${deliveryPin})`)
       : fail("delivery PIN not shown on the customer order page");
 
-    // 11b. Proof-of-delivery photo upload (requires the Supabase bucket).
-    const photoForm = new FormData();
-    photoForm.append("file", new Blob([TINY_PNG], { type: "image/png" }), "proof.png");
-    const photoRes = await req(`/api/delivery/orders/${orderId}/photo`, {
-      method: "POST",
-      jar: staffLogin.jar,
-      body: photoForm,
-    });
-    const photoJson = photoRes.status === 200 ? await photoRes.json().catch(() => ({})) : {};
-    const storageReady =
-      photoRes.status === 200 && String(photoJson.url || "").includes("delivery-proofs");
-    storageReady
-      ? ok("staff uploads proof photo (public storage URL)")
-      : fail(`photo upload failed (HTTP ${photoRes.status}) — delivery-proofs bucket not provisioned?`);
-
-    // 11c. PIN + photo gating: wrong PIN rejected, then DELIVERED succeeds.
+    // 11b. Delivery confirmation — only the customer's PIN is required.
     let deliveredOk = false;
-    if (storageReady && deliveryPin) {
+    if (deliveryPin) {
       const wrongPin = await req(`/api/delivery/orders/${orderId}/status`, {
         method: "PATCH",
         jar: staffLogin.jar,
-        body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: photoJson.url, deliveryPin: "0000" }),
+        body: JSON.stringify({ status: "DELIVERED", deliveryPin: "0000" }),
       });
       wrongPin.status === 400
         ? ok("wrong delivery PIN rejected")
@@ -350,14 +330,14 @@ async function main() {
       const deliveredRes = await req(`/api/delivery/orders/${orderId}/status`, {
         method: "PATCH",
         jar: staffLogin.jar,
-        body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: photoJson.url, deliveryPin }),
+        body: JSON.stringify({ status: "DELIVERED", deliveryPin }),
       });
       deliveredRes.status === 200
-        ? ok("staff marks order DELIVERED (photo + PIN)")
+        ? ok("staff marks order DELIVERED with the customer PIN")
         : fail(`DELIVERED failed (HTTP ${deliveredRes.status})`);
       deliveredOk = deliveredRes.status === 200;
     } else {
-      console.log("  ⚠️ skipping DELIVERED-with-photo assertions (storage or PIN unavailable)");
+      console.log("  ⚠️ skipping DELIVERED assertions (PIN unavailable)");
     }
 
     // 11d. Verify the delivered state end-to-end.

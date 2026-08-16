@@ -18,7 +18,6 @@ import {
   ArrowLeft,
   Bike,
   Calendar,
-  CheckCircle2,
   KeyRound,
   MapPin,
   Navigation,
@@ -242,22 +241,6 @@ export default async function DeliveryOrderPage({
         {/* Right column: proof of delivery + billing summary */}
         <div className="space-y-5">
           {/* Proof of delivery */}
-          {order.deliveryPhotoUrl && (
-            <div className="card space-y-2 p-5">
-              <h2 className="flex items-center gap-2 font-bold text-white">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Proof of Delivery
-              </h2>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={order.deliveryPhotoUrl}
-                alt="Delivery proof photo"
-                className="max-h-72 w-full rounded-xl border border-white/10 object-cover"
-              />
-              {order.deliveryPin && (
-                <p className="text-xs text-slate-400">Confirmed with customer PIN · {order.deliveryPin}</p>
-              )}
-            </div>
-          )}
 
           <div className="card h-fit space-y-4 p-5">
             <h2 className="flex items-center gap-2 font-bold text-white">

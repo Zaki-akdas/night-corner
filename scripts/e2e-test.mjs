@@ -412,7 +412,6 @@ async function sweepDynamicRoutes(ctx) {
     { pattern: "/api/admin/orders/[id]/assign", method: "PATCH", label: "admin order assign PATCH (admin, bogus → 404)", run: () => P("PATCH", "/api/admin/orders/not-a-real-id/assign", { jar: admin, body: { assignedTo: null } }), allowed: [404] },
     // ── delivery API (bogus id → 404 proves params resolve + lookup runs) ──
     { pattern: "/api/delivery/orders/[id]/status", method: "PATCH", label: "delivery status PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/status", { jar: staff, body: { status: "OUT_FOR_DELIVERY" } }), allowed: [404] },
-    { pattern: "/api/delivery/orders/[id]/photo", method: "POST", label: "delivery photo POST (staff, bogus → 404)", run: () => P("POST", "/api/delivery/orders/not-a-real-id/photo", { jar: staff }), allowed: [404] },
     { pattern: "/api/delivery/orders/[id]/accept", method: "PATCH", label: "delivery accept PATCH (staff, bogus → 404)", run: () => P("PATCH", "/api/delivery/orders/not-a-real-id/accept", { jar: staff }), allowed: [404] },
     // ── pincode lookup API ──
     { pattern: "/api/pincode/[code]", method: "GET", label: "pincode GET (valid → 200)", run: () => P("GET", "/api/pincode/462016"), allowed: [200] },
@@ -585,7 +584,6 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
     }
   }
 
-
   // Admin UI guard — the OrderStatusUpdater must block a DELIVERED save
   // without the customer PIN client-side (no PATCH leaves the browser), the same
   // rule the delivery app enforces — not merely reject it server-side.
@@ -692,13 +690,10 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
     }
   }
 
-
   // Staff UI guard — the rider's Mark Delivered flow must block a proof-less
   // DELIVERED save client-side too (no photo upload, no status PATCH), the
   // same rule the admin panel enforces.
   let staffOrder = null;
-  let staffProbeUrl = "";
-  let uiPhotoUrl = "";
   try {
     const staffUser = await prisma.user.findUnique({ where: { email: STAFF_EMAIL } });
     const staffProduct = await prisma.product.findFirst();
@@ -797,22 +792,6 @@ async function checkBrowserConsole({ prisma, userId, adminJar, staffJar, dotEnv 
     if (staffOrder) {
       await prisma.activityLog.deleteMany({ where: { entityId: staffOrder.id } }).catch(() => {});
       await prisma.order.delete({ where: { id: staffOrder.id } }).catch(() => {});
-
-    // Remove photos uploaded during the success-path probe / UI save.
-    for (const url of [staffProbeUrl, uiPhotoUrl]) {
-      if (url) {
-        try {
-          const base = String(dotEnv.SUPABASE_URL || "").replace(/\/$/, "");
-          const prefix = `${base}/storage/v1/object/public/delivery-proofs/`;
-          if (url.startsWith(prefix)) {
-            const p = url.slice(prefix.length);
-            const key = dotEnv.SUPABASE_SERVICE_ROLE_KEY || dotEnv.SUPABASE_PUBLISHABLE_KEY || dotEnv.SUPABASE_ANON_KEY;
-            const hdrs = key ? { apikey: key, Authorization: `Bearer ${key}` } : {};
-            await fetch(`${base}/storage/v1/object/delivery-proofs/${p}`, { method: "DELETE", headers: hdrs }).catch(() => {});
-          }
-        } catch { /* non-critical */ }
-      }
-    }
     }
   }
 
@@ -891,7 +870,6 @@ async function main() {
 
   let userId;
   let orderId;
-  let uploadedPhotoUrl = null;
 
   if (!REMOTE_MODE) {
     // Refuse to run if the test port is already serving something.
@@ -1515,7 +1493,7 @@ async function main() {
       jar: staffJar,
       body: JSON.stringify({
         status: "DELIVERED",
-        deliveryPhotoUrl: "https://example.com/proof.jpg",
+        
         deliveryPin: "0000",
       }),
     });
@@ -1573,13 +1551,13 @@ async function main() {
       const adminWrongPin = await request(`/api/admin/orders/${orderId}/status`, {
         method: "PATCH",
         jar: adminJar2,
-        body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: "https://example.com/proof.jpg", deliveryPin: "0000" }),
+        body: JSON.stringify({ status: "DELIVERED", deliveryPin: "0000" }),
       });
       assert(adminWrongPin.status === 400, "admin DELIVERED rejected with a wrong PIN");
       const adminProof = await request(`/api/admin/orders/${orderId}/status`, {
         method: "PATCH",
         jar: adminJar2,
-        body: JSON.stringify({ status: "DELIVERED", deliveryPhotoUrl: "https://example.com/proof.jpg", deliveryPin: ofdPin }),
+        body: JSON.stringify({ status: "DELIVERED", deliveryPin: ofdPin }),
       });
       assert(adminProof.status === 200, "admin DELIVERED accepted with correct PIN");
 
@@ -1697,31 +1675,6 @@ async function main() {
     if (server && !serverExited) {
       server.kill();
       await new Promise((r) => setTimeout(r, 1_500));
-    }
-    // Remove any photo uploaded to Supabase Storage during the run.
-    if (uploadedPhotoUrl && dotEnv.SUPABASE_URL) {
-      try {
-        const base = String(dotEnv.SUPABASE_URL).replace(/\/$/, "");
-        const prefix = `${base}/storage/v1/object/public/delivery-proofs/`;
-        if (uploadedPhotoUrl.startsWith(prefix)) {
-          const path = uploadedPhotoUrl.slice(prefix.length);
-          const key = dotEnv.SUPABASE_SERVICE_ROLE_KEY || dotEnv.SUPABASE_PUBLISHABLE_KEY || dotEnv.SUPABASE_ANON_KEY;
-          const headers = key ? { apikey: key, Authorization: `Bearer ${key}` } : {};
-          const del = await fetch(`${base}/storage/v1/object/delivery-proofs/${path}`, {
-            method: "DELETE",
-            headers,
-          });
-          // Anon may be denied delete — fall back to removing the metadata row.
-          if (del.ok) ok("removed uploaded test photo from storage");
-          else
-            await prisma
-              .$executeRawUnsafe(`DELETE FROM storage.objects WHERE bucket_id = 'delivery-proofs' AND name = '${path}'`)
-              .then(() => ok("removed uploaded test photo metadata from storage"))
-              .catch(() => {});
-        }
-      } catch {
-        /* non-critical */
-      }
     }
     if (REMOTE_MODE) {
       await cleanupRemoteData(prisma, userId, orderId, originalSettings);
