@@ -16,7 +16,7 @@ export function Footer({ settings }: { settings: AppSettings }) {
         <div>
           <div>
             <Image
-              src="/logo.png"
+              src="/logo.svg"
               alt="Night Corner"
               width={172}
               height={45}

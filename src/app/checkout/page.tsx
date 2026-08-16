@@ -384,7 +384,7 @@ export default function CheckoutPage() {
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6 text-center sm:text-left">
         <Image
-          src="/logo.png"
+          src="/logo.svg"
           alt="Night Corner"
           width={240}
           height={63}

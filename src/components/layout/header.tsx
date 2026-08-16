@@ -98,7 +98,7 @@ export function Header({ settings }: { settings: AppSettings }) {
       <div className="mx-auto flex max-w-7xl items-center gap-1 px-3 py-3 sm:gap-3 sm:px-4 lg:gap-6">
         <Link href="/" className="flex shrink-0 items-center">
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt="Night Corner"
             width={172}
             height={45}

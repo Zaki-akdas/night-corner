@@ -79,7 +79,7 @@ function Brand() {
   return (
     <Link href="/admin" className="flex flex-col gap-1">
       <Image
-        src="/logo.png"
+        src="/logo.svg"
         alt="Night Corner"
         width={172}
         height={45}

@@ -54,7 +54,7 @@ function LoginInner() {
       <div className="card w-full p-8">
         <div className="mb-6 text-center">
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt="Night Corner"
             width={224}
             height={59}

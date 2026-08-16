@@ -114,7 +114,7 @@ export function BrandIntro() {
       <div className="relative flex flex-col items-center px-6">
         <div className="intro-glow rounded-3xl">
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt=""
             width={420}
             height={110}
