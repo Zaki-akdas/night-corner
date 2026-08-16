@@ -3,13 +3,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/admin";
 import { formatINR } from "@/lib/settings";
-import { statusLabel } from "@/lib/orders";
+import { paymentMethodLabel, statusLabel } from "@/lib/orders";
 import { parseAddressSnapshot, formatAddressLine } from "@/lib/address";
 import { AutoRefresh } from "@/components/delivery/auto-refresh";
 import { FilterBar } from "@/components/delivery/filter-bar";
 import { DeliveryStatusActions } from "@/components/delivery/status-actions";
 import { AcceptOrderButton } from "@/components/delivery/accept-button";
-import { Clock, Handshake, Inbox, KeyRound, Layers, MapPin, Package, Phone, UserCheck, UserX } from "lucide-react";
+import { Clock, HandCoins, Handshake, Inbox, KeyRound, Layers, MapPin, Package, Phone, UserCheck, UserX } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ const TIME_FILTERS: Record<string, number> = {
 };
 
 const VALID_STATUSES = new Set(ACTIVE_STATUSES);
-const VALID_PAYMENTS = new Set(["COD", "UPI", "ONLINE"]);
+const VALID_PAYMENTS = new Set(["COD", "UPI", "SPLIT", "ONLINE"]);
 const VALID_SORTS = new Set(["oldest", "newest", "amount-desc", "amount-asc"]);
 
 export default async function DeliveryDashboardPage({
@@ -154,7 +154,13 @@ export default async function DeliveryDashboardPage({
               <div className="font-display text-lg font-extrabold text-white">{o.orderNumber}</div>
               <div className="text-xs text-slate-400">
                 {o.items.length} item{o.items.length === 1 ? "" : "s"} · {formatINR(o.total)} ·{" "}
-                {o.paymentMethod}
+                {paymentMethodLabel(o.paymentMethod)}
+              {o.paymentMethod === "SPLIT" && o.balanceDue > 0 && (
+                <div className="inline-flex items-center gap-1.5 rounded-lg bg-warm-yellow/10 px-2 py-1 text-xs font-semibold text-warm-yellow ring-1 ring-warm-yellow/30">
+                  <HandCoins className="h-3.5 w-3.5" />
+                  Collect {formatINR(o.balanceDue)} cash · {formatINR(o.advancePaid)} paid via UPI
+                </div>
+              )}
               </div>
             </div>
             <span

@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { getOpenStatus } from "@/lib/hours";
 import { computeOrderPricing } from "@/lib/pricing";
+import { computeSplitAmounts } from "@/lib/upi";
 import { generateOrderNumber } from "@/lib/orders";
 import { notifyOrderToBusiness } from "@/lib/whatsapp";
 import { notifyOrderToBusinessSms } from "@/lib/sms";
@@ -20,7 +21,7 @@ const schema = z.object({
     .array(z.object({ productId: z.string(), quantity: z.number().int().min(1).max(50) }))
     .min(1),
   addressId: z.string(),
-  paymentMethod: z.enum(["COD", "UPI", "ONLINE"]),
+  paymentMethod: z.enum(["COD", "UPI", "SPLIT", "ONLINE"]),
   couponCode: z.string().optional(),
 });
 
@@ -73,6 +74,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "COD is currently unavailable" }, { status: 400 });
   if (paymentMethod === "UPI" && !settings.upiEnabled)
     return NextResponse.json({ error: "UPI is currently unavailable" }, { status: 400 });
+  if (paymentMethod === "SPLIT" && !settings.splitEnabled)
+    return NextResponse.json({ error: "Split payment is currently unavailable" }, { status: 400 });
   if (paymentMethod === "ONLINE" && !settings.onlineEnabled)
     return NextResponse.json({ error: "Online payment is currently unavailable" }, { status: 400 });
 
@@ -89,6 +92,19 @@ export async function POST(req: Request) {
       lng: address.lng,
       couponCode,
     });
+    // Split payment (UPI advance + COD balance): the prepaid amount is the
+    // delivery fee or the admin-configured advance rule; the remaining
+    // balance is collected as cash on delivery.
+    const split =
+      paymentMethod === "SPLIT"
+        ? computeSplitAmounts({
+            type: settings.splitAdvanceType,
+            value: settings.splitAdvanceValue,
+            total: pricing.total,
+            deliveryCharge: pricing.deliveryCharge,
+          })
+        : null;
+
     // Atomic-ish order creation with stock re-check & deduction.
     const orderNumber = await generateOrderNumber();
     const result = await prisma.$transaction(async (tx) => {
@@ -115,7 +131,9 @@ export async function POST(req: Request) {
           total: pricing.total,
           distanceKm: pricing.distanceKm,
           paymentMethod,
-          paymentStatus: "PENDING",
+          paymentStatus: paymentMethod === "SPLIT" ? "PARTIAL" : "PENDING",
+          advancePaid: split?.advance ?? 0,
+          balanceDue: split?.balance ?? 0,
           couponCode: pricing.couponCode,
           status: "PLACED",
           eta: `${settings.deliveryTimeMins} mins`,
@@ -236,6 +254,10 @@ export async function POST(req: Request) {
       // 4-digit proof-of-delivery PIN the customer keeps for the delivery
       // person — also delivered to their phone via WhatsApp/SMS.
       deliveryPin: result.deliveryPin,
+      paymentMethod: result.paymentMethod,
+      advancePaid: result.advancePaid,
+      balanceDue: result.balanceDue,
+      upiId: settings.upiId,
     });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });

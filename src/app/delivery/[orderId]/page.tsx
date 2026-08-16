@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/admin";
 import { formatINR, getSettings } from "@/lib/settings";
-import { statusLabel } from "@/lib/orders";
+import { paymentMethodLabel, statusLabel } from "@/lib/orders";
 import {
   parseAddressSnapshot,
   formatAddressLine,
@@ -122,7 +122,7 @@ export default async function DeliveryOrderPage({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="font-display text-2xl font-extrabold text-white">{order.orderNumber}</h1>
           <span className="text-sm text-slate-400">
-            {order.paymentMethod} · {statusLabel(order.paymentStatus)}
+            {paymentMethodLabel(order.paymentMethod)} · {statusLabel(order.paymentStatus)}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
@@ -264,12 +264,30 @@ export default async function DeliveryOrderPage({
             <div className="flex justify-between text-slate-300">
               <dt>Tax</dt>
               <dd>{formatINR(order.tax)}</dd>
+            {order.paymentMethod === "SPLIT" && order.advancePaid > 0 && (
+              <>
+                <div className="flex justify-between text-emerald-300">
+                  <dt>Paid now (UPI)</dt>
+                  <dd>{formatINR(order.advancePaid)}</dd>
+                </div>
+                <div className="flex justify-between text-warm-yellow">
+                  <dt>Cash on delivery</dt>
+                  <dd>{formatINR(order.balanceDue)}</dd>
+                </div>
+              </>
+            )}
             </div>
             <div className="flex justify-between border-t border-white/10 pt-2 text-base font-bold text-white">
               <dt>Total</dt>
               <dd className="text-warm-yellow">{formatINR(order.total)}</dd>
             </div>
           </dl>
+          {order.paymentMethod === "SPLIT" && order.balanceDue > 0 && (
+            <div className="rounded-xl bg-warm-yellow/10 p-3 text-sm ring-1 ring-warm-yellow/30">
+              <span className="font-bold text-warm-yellow">Collect {formatINR(order.balanceDue)} cash</span>{" "}
+              <span className="text-slate-300">at handover · {formatINR(order.advancePaid)} already paid via UPI.</span>
+            </div>
+          )}
           {order.notes && (
             <div className="rounded-xl bg-white/5 p-3 text-sm text-slate-300">
               <span className="font-semibold text-white">Notes: </span>

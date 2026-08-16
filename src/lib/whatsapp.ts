@@ -44,6 +44,9 @@ export function buildOrderMessage(
     addressText,
     "",
     "Payment:",
+    order.paymentMethod === "SPLIT"
+      ? `Split — Advance ${formatINR(order.advancePaid)} via UPI, balance ${formatINR(order.balanceDue)} cash on delivery`
+      : order.paymentMethod,
     order.paymentMethod,
     "",
     "Order Time:",

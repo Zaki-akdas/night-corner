@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { formatINR } from "@/lib/settings";
-import { statusLabel } from "@/lib/orders";
+import { paymentMethodLabel, statusLabel } from "@/lib/orders";
 import Link from "next/link";
 import { AdminOrderFilters } from "./filters";
 import { RefreshButton } from "@/components/ui/refresh-button";
@@ -64,7 +64,7 @@ export default async function AdminOrdersPage({
                 <td className="p-3 text-slate-200">{o.user.name}</td>
                 <td className="p-3 text-slate-400">{o.items.length}</td>
                 <td className="p-3 font-semibold text-warm-yellow">{formatINR(o.total)}</td>
-                <td className="p-3 text-slate-300">{o.paymentMethod}</td>
+<td className="p-3 text-slate-300">{paymentMethodLabel(o.paymentMethod)}</td>
                 <td className="p-3">
                   <span className="chip bg-neon-purple/20 text-neon-purple">{statusLabel(o.status)}</span>
                 </td>

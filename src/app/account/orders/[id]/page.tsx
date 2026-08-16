@@ -3,18 +3,21 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/admin";
-import { formatINR } from "@/lib/settings";
+import { formatINR, getSettings } from "@/lib/settings";
+import { paymentMethodLabel, statusLabel } from "@/lib/orders";
+import { upiPayLink } from "@/lib/upi";
 import { STATUS_FLOW } from "@/lib/types";
 import { OrderTimeline } from "@/components/account/order-timeline";
 import { DeliveryRating } from "@/components/account/delivery-rating";
 import { ResendPinButton } from "@/components/account/resend-pin-button";
-import { KeyRound, MapPin, Printer, ShieldCheck } from "lucide-react";
+import { KeyRound, MapPin, Printer, ShieldCheck, Smartphone } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
+  const settings = await getSettings();
   const order = await prisma.order.findFirst({
     where: { id, userId: user.id },
     include: { items: true, address: true },
@@ -106,8 +109,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         </div>
         <div className="card p-5">
           <h2 className="mb-3 font-bold text-white">Payment</h2>
-          <Row label="Method" value={order.paymentMethod} />
-          <Row label="Status" value={order.paymentStatus} />
+          <Row label="Method" value={paymentMethodLabel(order.paymentMethod)} />
+          <Row label="Status" value={statusLabel(order.paymentStatus)} />
+          {order.paymentMethod === "SPLIT" && order.advancePaid > 0 && (
+            <>
+              <Row label="Paid now (UPI)" value={formatINR(order.advancePaid)} />
+              <Row label="Cash on delivery" value={formatINR(order.balanceDue)} />
+            </>
+          )}
           <Row label="Subtotal" value={formatINR(order.subtotal)} />
           {order.discount > 0 && <Row label="Discount" value={"- " + formatINR(order.discount)} />}
           <Row label="Delivery" value={order.deliveryCharge === 0 ? "FREE" : formatINR(order.deliveryCharge)} />
@@ -121,6 +130,30 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
       <div className="card p-5">
         <h2 className="mb-3 font-bold text-white">Items</h2>
+      {["UPI", "SPLIT"].includes(order.paymentMethod) && order.paymentStatus !== "PAID" && settings.upiId && (
+        <div className="card border border-neon-blue/30 bg-neon-blue/10 p-5">
+          <h2 className="mb-2 flex items-center gap-2 font-bold text-white">
+            <Smartphone className="h-4 w-4 text-neon-blue" /> Pay via UPI
+          </h2>
+          <p className="text-sm text-slate-300">
+            {order.paymentMethod === "SPLIT" ? (
+              <>
+                Pay <strong className="text-white">{formatINR(order.advancePaid)}</strong> advance to <strong className="text-white">{settings.upiId}</strong>. The remaining <strong className="text-white">{formatINR(order.balanceDue)}</strong> is cash on delivery.
+              </>
+            ) : (
+              <>
+                Pay <strong className="text-white">{formatINR(order.total)}</strong> to <strong className="text-white">{settings.upiId}</strong> using any UPI app.
+              </>
+            )}
+          </p>
+          <a
+            href={upiPayLink(settings.upiId, order.paymentMethod === "SPLIT" ? order.advancePaid : order.total, `${order.orderNumber} ${order.paymentMethod === "SPLIT" ? "advance" : "payment"}`)}
+            className="btn-primary mt-3"
+          >
+            <Smartphone className="h-4 w-4" /> Pay now with UPI app
+          </a>
+        </div>
+      )}
         <div className="space-y-3">
           {order.items.map((i) => (
             <div key={i.id} className="flex items-center gap-3">

@@ -14,6 +14,7 @@ import {
   Timer,
   TrendingUp,
   Wallet,
+  Smartphone,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,8 @@ export default async function RiderStatsPage() {
         orderNumber: true,
         status: true,
         paymentMethod: true,
+        advancePaid: true,
+        balanceDue: true,
         total: true,
         createdAt: true,
         updatedAt: true,
@@ -57,7 +60,12 @@ export default async function RiderStatsPage() {
   const delivered = orders.filter((o) => o.status === "DELIVERED");
   const deliveredCount = delivered.length;
   const totalSales = delivered.reduce((a, o) => a + o.total, 0);
-  const cashCollected = delivered.filter((o) => o.paymentMethod === "COD").reduce((a, o) => a + o.total, 0);
+  const cashCollected = delivered
+    .filter((o) => o.paymentMethod === "COD" || o.paymentMethod === "SPLIT")
+    .reduce((a, o) => a + (o.paymentMethod === "SPLIT" ? o.balanceDue : o.total), 0);
+  const upiCollected = delivered
+    .filter((o) => o.paymentMethod === "UPI" || o.paymentMethod === "SPLIT")
+    .reduce((a, o) => a + (o.paymentMethod === "SPLIT" ? o.advancePaid : o.total), 0);
   const activeCount = orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).length;
 
   const times = delivered
@@ -125,12 +133,13 @@ export default async function RiderStatsPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={<PackageCheck className="h-5 w-5" />} label="Orders delivered" value={String(deliveredCount)} sub={`${activeCount} active now`} tone="text-emerald-400" />
         <Stat icon={<IndianRupee className="h-5 w-5" />} label="Total sales" value={formatINR(totalSales)} sub="value of delivered orders" tone="text-neon-blue" />
-        <Stat icon={<Wallet className="h-5 w-5" />} label="Cash collected" value={formatINR(cashCollected)} sub="COD on delivered orders" tone="text-warm-yellow" />
+        <Stat icon={<Wallet className="h-5 w-5" />} label="Cash collected" value={formatINR(cashCollected)} sub="COD + split balances at delivery" tone="text-warm-yellow" />
         <Stat icon={<Star className="h-5 w-5" />} label="Avg rating" value={avgRating == null ? "—" : `${avgRating.toFixed(1)} ★`} sub={ratings.length ? `${ratings.length} rated` : "no ratings yet"} tone="text-amber-300" />
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Stat icon={<Timer className="h-5 w-5" />} label="Avg delivery time" value={fmtMin(avgMin)} sub="out-for-delivery → delivered" tone="text-neon-purple" />
+        <Stat icon={<Smartphone className="h-5 w-5" />} label="Collected via UPI" value={formatINR(upiCollected)} sub="UPI + split advances on delivered orders" tone="text-neon-blue" />
         <Stat icon={<TrendingUp className="h-5 w-5" />} label="This month" value={`${month.count} orders · ${formatINR(month.sales)}`} sub={`This week: ${week.count} orders · ${formatINR(week.sales)} · Today: ${today.count} orders · ${formatINR(today.sales)}`} tone="text-neon-blue" />
       </div>
 

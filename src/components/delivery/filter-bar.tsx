@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, X } from "lucide-react";
 
 const STATUS_OPTIONS = ["PLACED", "CONFIRMED", "PREPARING", "PACKED", "OUT_FOR_DELIVERY"];
-const PAYMENT_OPTIONS = ["COD", "UPI", "ONLINE"];
+const PAYMENT_OPTIONS = ["COD", "UPI", "SPLIT", "ONLINE"];
 const TIME_OPTIONS = [
   { value: "", label: "All time" },
   { value: "1h", label: "Last 1 hour" },

@@ -18,6 +18,7 @@ import { formatINR } from "@/lib/settings";
 import { useToast } from "@/components/ui/toast";
 import { useOpenStatus } from "@/hooks/use-open-status";
 import { lookupPincode } from "@/lib/pincode-autofill";
+import { computeSplitAmounts, upiPayLink } from "@/lib/upi";
 import { motion } from "framer-motion";
 
 type Address = {
@@ -84,7 +85,7 @@ export default function CheckoutPage() {
   const [savingAddr, setSavingAddr] = useState(false);
   const [patchingLocation, setPatchingLocation] = useState<string | null>(null); // address id being updated
   const [locationDraft, setLocationDraft] = useState<{ lat: string; lng: string }>({ lat: "", lng: "" });
-  const [payment, setPayment] = useState<"COD" | "UPI" | "ONLINE">("COD");
+  const [payment, setPayment] = useState<"COD" | "UPI" | "SPLIT" | "ONLINE">("COD");
   const [coupon, setCoupon] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
@@ -92,17 +93,38 @@ export default function CheckoutPage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [deliveryPin, setDeliveryPin] = useState<string | null>(null);
+  const [orderUpiId, setOrderUpiId] = useState("");
+  const [orderAdvance, setOrderAdvance] = useState(0);
+  const [orderBalance, setOrderBalance] = useState(0);
+  const [orderTotal, setOrderTotal] = useState(0);
   const [paymentConfig, setPaymentConfig] = useState<{
     cod: boolean;
     upi: boolean;
     online: boolean;
     upiId: string;
-  }>({ cod: true, upi: true, online: false, upiId: "" });
+    split: boolean;
+    splitAdvanceType: "delivery" | "percent" | "fixed";
+    splitAdvanceValue: number;
+  }>({ cod: true, upi: true, online: false, upiId: "", split: true, splitAdvanceType: "delivery", splitAdvanceValue: 0 });
 
   // Redirect unauthenticated users.
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login?callbackUrl=/checkout");
   }, [status, router]);
+
+  // Live preview of the split-payment breakdown (UPI advance + COD balance).
+  const splitPreview = useMemo(
+    () =>
+      quote
+        ? computeSplitAmounts({
+            type: paymentConfig.splitAdvanceType,
+            value: paymentConfig.splitAdvanceValue,
+            total: quote.total,
+            deliveryCharge: quote.deliveryCharge,
+          })
+        : { advance: 0, balance: 0 },
+    [quote, paymentConfig.splitAdvanceType, paymentConfig.splitAdvanceValue]
+  );
 
   // Load payment settings.
   useEffect(() => {
@@ -114,6 +136,9 @@ export default function CheckoutPage() {
           upi: d.upiEnabled,
           online: d.onlineEnabled,
           upiId: d.upiId,
+          split: d.splitEnabled ?? true,
+          splitAdvanceType: d.splitAdvanceType ?? "delivery",
+          splitAdvanceValue: d.splitAdvanceValue ?? 0,
         })
       )
       .catch(() => {});
@@ -385,6 +410,10 @@ export default function CheckoutPage() {
       setOrderId(data.orderId);
       setOrderNumber(data.orderNumber);
       setDeliveryPin(data.deliveryPin ?? null);
+      setOrderUpiId(data.upiId ?? paymentConfig.upiId);
+      setOrderAdvance(data.advancePaid ?? 0);
+      setOrderBalance(data.balanceDue ?? 0);
+      setOrderTotal(quote.total);
       clear();
       setStep(4);
     } catch (e) {
@@ -737,12 +766,36 @@ export default function CheckoutPage() {
                 title="Online Payment (Card / Netbanking / Wallet)"
                 desc="Secure payment via our payment gateway."
               />
+              {paymentConfig.split && paymentConfig.cod && paymentConfig.upi && splitPreview.advance > 0 && (
+                <>
+                  <PayOption
+                    active={payment === "SPLIT"}
+                    onClick={() => setPayment("SPLIT")}
+                    title="Split — Pay advance via UPI + balance Cash on Delivery"
+                    desc={`Pay ${formatINR(splitPreview.advance)} now via UPI · ${formatINR(splitPreview.balance)} cash on delivery`}
+                  />
+                  {payment === "SPLIT" && (
+                    <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+                      <p className="font-semibold text-white">How split payment works</p>
+                      <p className="mt-1">
+                        Pay <strong>{formatINR(splitPreview.advance)}</strong> right now via UPI to <strong>{paymentConfig.upiId}</strong>. The remaining{" "}
+                        <strong>{formatINR(splitPreview.balance)}</strong> is collected as cash when your order arrives.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button onClick={() => setStep(2)} className="btn-ghost">Back</button>
                 <button onClick={placeOrder} disabled={placing || open?.isOpen === false} className="btn-primary flex-1">
                   {placing ? <Loader2 className="h-5 w-5 animate-spin" /> : `Place Order · ${formatINR(quote.total)}`}
                 </button>
               </div>
+              {payment === "SPLIT" && (
+                <p className="text-center text-xs text-emerald-300">
+                  You&apos;ll pay {formatINR(splitPreview.advance)} now via UPI and {formatINR(splitPreview.balance)} cash on delivery.
+                </p>
+              )}
               <p className="text-center text-xs text-slate-500">
                 By placing this order you agree to our terms. Prices, stock and delivery charge are verified securely on our server.
               </p>
@@ -775,6 +828,33 @@ export default function CheckoutPage() {
                   <div className="mt-1 text-xs text-emerald-200/80">
                     Share it with your delivery person at handover — it&apos;s also been sent to your phone.
                   </div>
+                </div>
+              )}
+              {(payment === "UPI" || payment === "SPLIT") && orderUpiId && (
+                <div className="mx-auto mt-5 w-full max-w-md rounded-2xl border border-neon-blue/30 bg-neon-blue/10 p-5 text-left">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-neon-blue">
+                    {payment === "SPLIT" ? `Pay advance now · ${formatINR(orderAdvance)}` : "Pay now via UPI"}
+                  </div>
+                  <p className="mt-1 text-sm text-slate-300">
+                    {payment === "SPLIT" ? (
+                      <>
+                        Pay <strong className="text-white">{formatINR(orderAdvance)}</strong> now to <strong className="text-white">{orderUpiId}</strong>. Balance of <strong className="text-white">{formatINR(orderBalance)}</strong> is cash on delivery.
+                      </>
+                    ) : (
+                      <>
+                        Pay <strong className="text-white">{formatINR(orderTotal)}</strong> to <strong className="text-white">{orderUpiId}</strong> using any UPI app.
+                      </>
+                    )}
+                  </p>
+                  <a
+                    href={upiPayLink(orderUpiId, payment === "SPLIT" ? orderAdvance : orderTotal, `${orderNumber} ${payment === "SPLIT" ? "advance" : "payment"}`)}
+                    className="btn-primary mt-3 w-full justify-center"
+                  >
+                    Pay now with UPI app
+                  </a>
+                  <p className="mt-2 text-center text-[11px] text-slate-400">
+                    Opens your UPI app with the amount pre-filled — no QR scan needed.
+                  </p>
                 </div>
               )}
               <p className="mt-4 text-sm text-slate-400">

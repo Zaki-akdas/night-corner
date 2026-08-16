@@ -206,9 +206,13 @@ model Order {
   distanceKm      Float       @default(0)
   status          String      @default("PLACED")
   // PLACED,CONFIRMED,PREPARING,PACKED,OUT_FOR_DELIVERY,DELIVERED,CANCELLED,REFUNDED
-  paymentMethod   String      @default("COD") // COD,UPI,ONLINE
-  paymentStatus   String      @default("PENDING") // PENDING,PAID,FAILED,REFUNDED
+  paymentMethod   String      @default("COD") // COD,UPI,SPLIT,ONLINE
+  paymentStatus   String      @default("PENDING") // PENDING,PARTIAL,PAID,FAILED,REFUNDED
   paymentId       String?
+  // Split payment (UPI advance + COD balance): the amount prepaid via UPI
+  // at checkout and the balance the customer pays cash on delivery.
+  advancePaid     Float       @default(0)
+  balanceDue      Float       @default(0)
   couponCode      String?
   eta             String?
   notes           String?

@@ -1,5 +1,6 @@
 import type { Order, OrderItem, User } from "@prisma/client";
 import { formatINR } from "./settings";
+import { paymentMethodLabel } from "./orders";
 
 export type InvoiceData = Order & {
   items: OrderItem[];
@@ -128,7 +129,7 @@ export function renderInvoiceHtml(
       <tr><td>Delivery</td><td style="text-align:right">${order.deliveryCharge === 0 ? "FREE" : formatINR(order.deliveryCharge)}</td></tr>
       <tr><td>Tax (${info.taxPercent}%)</td><td style="text-align:right">${formatINR(order.tax)}</td></tr>
       <tr class="grand"><td>Grand Total</td><td style="text-align:right">${formatINR(order.total)}</td></tr>
-      <tr><td colSpan="2" style="font-size:11px;color:#64748b">Payment: ${order.paymentMethod} · ${order.paymentStatus}</td></tr>
+      <tr><td colSpan="2" style="font-size:11px;color:#64748b">Payment: ${paymentMethodLabel(order.paymentMethod)} · ${order.paymentStatus}${order.paymentMethod === "SPLIT" && order.advancePaid > 0 ? ` — Advance paid ${formatINR(order.advancePaid)} (UPI), balance ${formatINR(order.balanceDue)} cash on delivery` : ""}</td></tr>
     </tbody></table></div>
     <div class="foot">
       <div class="thanks">Thank you for ordering from Night Corner! 🌙</div>

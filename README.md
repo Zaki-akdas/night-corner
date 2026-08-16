@@ -32,7 +32,10 @@ NextAuth. Open **10 PM – 6 AM**, delivery **within 10 KM**.
   the configured shop location; outside-10 KM blocked.
 - Distance-based delivery slabs, min order, free-delivery threshold, coupon codes
   (NIGHT10, FREESHIP seeded) — **all recomputed on the server**.
-- Payments: COD, UPI, Online (gateway configurable via env vars).
+- Payments: COD, full UPI, or **Split** — pay the delivery fee (or an
+  admin-configured advance) via UPI now and the balance cash on delivery.
+  One-tap upi:// deep links open the customer's UPI app with the amount
+  pre-filled; Online gateway stays configurable via env vars.
 - Order confirmation, printable/downloadable HTML invoice (browser print-to-PDF),
   WhatsApp order notification to the business.
 

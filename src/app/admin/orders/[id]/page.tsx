@@ -3,6 +3,7 @@ import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { formatINR } from "@/lib/settings";
+import { paymentMethodLabel, statusLabel } from "@/lib/orders";
 import { OrderStatusUpdater } from "./status-updater";
 import { AssigneeSelect } from "./assignee-select";
 import { Download, MapPin, Phone } from "lucide-react";
@@ -115,7 +116,19 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
 
           <div className="card p-5">
             <h2 className="mb-3 font-bold text-white">Payment</h2>
-            <p className="text-sm text-slate-300">{order.paymentMethod} · {order.paymentStatus}</p>
+            <p className="text-sm text-slate-300">{paymentMethodLabel(order.paymentMethod)} · {statusLabel(order.paymentStatus)}</p>
+            {order.paymentMethod === "SPLIT" && order.advancePaid > 0 && (
+              <div className="mt-3 space-y-1 rounded-xl bg-white/5 p-3 text-sm">
+                <div className="flex justify-between text-emerald-300">
+                  <span>Paid now (UPI)</span>
+                  <span className="font-semibold">{formatINR(order.advancePaid)}</span>
+                </div>
+                <div className="flex justify-between text-warm-yellow">
+                  <span>Cash on delivery</span>
+                  <span className="font-semibold">{formatINR(order.balanceDue)}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <AssigneeSelect

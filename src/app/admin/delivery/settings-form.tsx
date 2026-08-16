@@ -146,7 +146,25 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
           <span className="label">UPI ID</span>
           <input className="input" value={s.upiId} onChange={(e) => set("upiId", e.target.value)} />
         </label>
-        <Toggle label="Online payment gateway" on={s.onlineEnabled} onClick={() => set("onlineEnabled", !s.onlineEnabled)} />
+<Toggle label="Split payment — UPI advance + balance cash on delivery" on={s.splitEnabled} onClick={() => set("splitEnabled", !s.splitEnabled)} />
+{s.splitEnabled && (
+  <div className="flex flex-wrap items-end gap-3">
+    <label className="block">
+      <span className="label">Advance rule</span>
+      <select className="input" value={s.splitAdvanceType} onChange={(e) => set("splitAdvanceType", e.target.value as AppSettings["splitAdvanceType"])}>
+        <option value="delivery">Delivery fee only</option>
+        <option value="percent">Percent of order total</option>
+        <option value="fixed">Fixed amount (₹)</option>
+      </select>
+    </label>
+    {(s.splitAdvanceType === "percent" || s.splitAdvanceType === "fixed") && (
+      <label className="block">
+        <span className="label">{s.splitAdvanceType === "percent" ? "Percent (%)" : "Amount (₹)"}</span>
+        <input type="number" min="0" className="input max-w-[140px]" value={s.splitAdvanceValue} onChange={(e) => set("splitAdvanceValue", Number(e.target.value))} />
+      </label>
+    )}
+  </div>
+)}
       </section>
 
       {/* WhatsApp / contact */}

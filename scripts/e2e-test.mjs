@@ -1143,6 +1143,31 @@ async function main() {
       `oversell rejected by stock check (got ${overRes.status}: ${JSON.stringify(overJson).slice(0, 140)})`
     );
 
+    // 4b. Split payment (UPI advance + COD balance): the delivery fee is
+    // prepaid via UPI at placement; the balance is collected cash on delivery.
+    const splitRes = await request("/api/orders", {
+      method: "POST",
+      jar,
+      body: JSON.stringify({
+        items: [
+          { productId: chips.id, quantity: 1 },
+          { productId: drink.id, quantity: 1 },
+        ],
+        addressId: address.id,
+        paymentMethod: "SPLIT",
+      }),
+    });
+    const splitJson = await splitRes.json();
+    assert(splitRes.status === 200 && splitJson.orderId, `SPLIT order placed (${splitJson.orderNumber})`);
+    // chips×1 (₹20) + drink×1 (₹30) = ₹50 · ₹20 delivery · 5% tax ₹2.5 → ₹72.5.
+    // "Delivery fee" advance rule → pay ₹20 via UPI now, ₹52.5 cash on delivery.
+    assert(splitJson.paymentMethod === "SPLIT", "split order response marks SPLIT");
+    assert(splitJson.advancePaid === 20, `split advance = delivery fee (got ${splitJson.advancePaid})`);
+    assert(splitJson.balanceDue === 52.5, `split balance = total - advance (got ${splitJson.balanceDue})`);
+    const splitOrder = await prisma.order.findUnique({ where: { id: splitJson.orderId } });
+    assert(!!splitOrder, "split order row persisted");
+    assert(splitOrder.paymentStatus === "PARTIAL", "split order persisted as PARTIAL (advance paid, balance due)");
+    assert(splitOrder.advancePaid === 20 && splitOrder.balanceDue === 52.5, "split amounts persisted on the row");
     // 5. Verify everything persisted.
     log("verifying persistence in the database…");
 
@@ -1169,10 +1194,10 @@ async function main() {
 
     const chipsAfter = await prisma.product.findUnique({ where: { id: chips.id } });
     const drinkAfter = await prisma.product.findUnique({ where: { id: drink.id } });
-    assert(chipsAfter.stock === 3 && chipsAfter.sold === 2, `chips stock 5→${chipsAfter.stock}, sold ${chipsAfter.sold}`);
-    assert(drinkAfter.stock === 2 && drinkAfter.sold === 2, `drink stock 4→${drinkAfter.stock}, sold ${drinkAfter.sold}`);
+    assert(chipsAfter.stock === 2 && chipsAfter.sold === 3, `chips stock 5→${chipsAfter.stock}, sold ${chipsAfter.sold}`);
+    assert(drinkAfter.stock === 1 && drinkAfter.sold === 3, `drink stock 4→${drinkAfter.stock}, sold ${drinkAfter.sold}`);
 
-    const notif = await prisma.notification.findFirst({ where: { userId, type: "ORDER" }, orderBy: { createdAt: "desc" } });
+    const notif = await prisma.notification.findFirst({ where: { userId, type: "ORDER", body: { contains: order.orderNumber } }, orderBy: { createdAt: "desc" } });
     assert(!!notif && /Order confirmed/.test(notif.title), "customer notification persisted");
     assert(notif && notif.body.includes(order.deliveryPin), "placed notification includes the delivery PIN");
 
@@ -1570,13 +1595,15 @@ async function main() {
     // 5e2. Dashboard filters: status / payment / time / sort.
     log("delivery dashboard filters…");
     const seedProduct = await prisma.product.findFirst();
-    const mkFilterOrder = (num, paymentMethod, createdAt) =>
+    const mkFilterOrder = (num, paymentMethod, createdAt, opts = {}) =>
       prisma.order.create({
         data: {
           orderNumber: num,
           status: "PLACED",
           paymentMethod,
-          paymentStatus: "PENDING",
+          paymentStatus: opts.paymentStatus ?? "PENDING",
+          advancePaid: opts.advancePaid ?? 0,
+          balanceDue: opts.balanceDue ?? 0,
           subtotal: 100,
           deliveryCharge: 20,
           tax: 5,
@@ -1607,6 +1634,11 @@ async function main() {
       });
     const filterNew = await mkFilterOrder("NC-TEST-COD-1", "COD", new Date());
     const filterOld = await mkFilterOrder("NC-TEST-UPI-1", "UPI", new Date(Date.now() - 2 * 3600_000));
+    const filterSplit = await mkFilterOrder("NC-TEST-SPLIT-1", "SPLIT", new Date(), {
+      paymentStatus: "PARTIAL",
+      advancePaid: 20,
+      balanceDue: 105,
+    });
 
     const dashAll = await (await request("/delivery", { jar: staffJar })).text();
     assert(dashAll.includes("NC-TEST-COD-1") && dashAll.includes("NC-TEST-UPI-1"), "dashboard shows all active orders by default");
@@ -1616,6 +1648,13 @@ async function main() {
 
     const dashUpi = await (await request("/delivery?payment=UPI", { jar: staffJar })).text();
     assert(dashUpi.includes("NC-TEST-UPI-1") && !dashUpi.includes("NC-TEST-COD-1"), "payment filter keeps only UPI orders");
+    const dashSplit = await (await request("/delivery?payment=SPLIT", { jar: staffJar })).text();
+    assert(dashSplit.includes("NC-TEST-SPLIT-1") && !dashSplit.includes("NC-TEST-COD-1"), "payment filter keeps only SPLIT orders");
+    assert(dashSplit.includes("Split (UPI + Cash)"), "delivery dashboard labels the split payment method");
+    // React inserts <!-- --> separators between text and expressions, so
+    // compare against a comment-stripped copy of the dashboard HTML.
+    const dashSplitText = dashSplit.replace(/<!-- -->/g, "");
+    assert(dashSplitText.includes("Collect ₹105 cash · ₹20 paid via UPI"), "delivery dashboard shows the cash to collect for split orders");
 
     const dash1h = await (await request("/delivery?time=1h", { jar: staffJar })).text();
     assert(dash1h.includes("NC-TEST-COD-1") && !dash1h.includes("NC-TEST-UPI-1"), "time filter hides orders older than the window");
@@ -1632,7 +1671,7 @@ async function main() {
       "newest-first sort lists the fresh order before the older one"
     );
 
-    await prisma.order.deleteMany({ where: { orderNumber: { in: ["NC-TEST-COD-1", "NC-TEST-UPI-1"] } } });
+    await prisma.order.deleteMany({ where: { orderNumber: { in: ["NC-TEST-COD-1", "NC-TEST-UPI-1", "NC-TEST-SPLIT-1"] } } });
     ok("removed filter-test orders");
 
     // 5f. Customer live tracking: public track API returns status + map data.

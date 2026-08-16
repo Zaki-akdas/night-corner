@@ -2,6 +2,7 @@ import { sendWhatsappMessage, type WhatsAppTemplateParams } from "./whatsapp";
 import { sendSmsMessage } from "./sms";
 import { sendMessengerMessage, getMessengerPsid } from "./messenger";
 import { getSettings, formatINR, type AppSettings } from "./settings";
+import { paymentMethodLabel } from "./orders";
 
 /**
  * Customer order-status alerts via SMS + WhatsApp. Used at every milestone —
@@ -18,6 +19,8 @@ export type OrderLike = {
   eta?: string | null;
   deliveryPin?: string | null;
   paymentMethod?: string;
+  advancePaid?: number;
+  balanceDue?: number;
   userId?: string | null;
 };
 
@@ -31,7 +34,8 @@ export function buildCustomerOrderMessage(
     case "PLACED":
       return [
         `🌙 Order confirmed! Your Night Corner order ${order.orderNumber} is in.`,
-        `Total: ${formatINR(order.total)}${order.paymentMethod ? ` · ${order.paymentMethod}` : ""}`,
+`Total: ${formatINR(order.total)}${order.paymentMethod ? ` · ${paymentMethodLabel(order.paymentMethod)}` : ""}`,
+order.paymentMethod === "SPLIT" && order.advancePaid ? `💳 Pay ${formatINR(order.advancePaid)} now via UPI — balance ${formatINR(order.balanceDue ?? 0)} cash on delivery.` : "",
         order.eta ? `Estimated delivery: ${order.eta}.` : "",
         order.deliveryPin
           ? `🔑 Your delivery PIN: ${order.deliveryPin} — keep it ready. Your delivery person will ask for it at handover.`

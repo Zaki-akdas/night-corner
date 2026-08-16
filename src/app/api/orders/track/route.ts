@@ -15,6 +15,8 @@ export async function GET(req: Request) {
       total: true,
       createdAt: true,
       paymentMethod: true,
+      advancePaid: true,
+      balanceDue: true,
       eta: true,
       distanceKm: true,
       addressSnapshot: true,
@@ -31,6 +33,8 @@ export async function GET(req: Request) {
     total: order.total,
     createdAt: order.createdAt,
     paymentMethod: order.paymentMethod,
+    advancePaid: order.advancePaid,
+    balanceDue: order.balanceDue,
     eta: order.eta,
     distanceKm: order.distanceKm,
     // Delivery pin + shop origin so the client can draw the route map.

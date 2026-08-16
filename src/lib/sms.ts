@@ -58,7 +58,7 @@ export async function notifyOrderToBusinessSms(
   const msg = [
     "🌙 NEW ORDER — NIGHT CORNER",
     `Order: ${order.orderNumber}`,
-    `Total: ${formatINR(order.total)} · ${itemCount} item(s) · ${order.paymentMethod}`,
+    `Total: ${formatINR(order.total)} · ${itemCount} item(s) · ${order.paymentMethod}${order.paymentMethod === "SPLIT" ? ` (collect ${formatINR(order.balanceDue)} cash)` : ""}`,
     `Customer: ${customerName} · ${customerMobile}`,
     `Address: ${addressText}`,
     `Time: ${time}`,

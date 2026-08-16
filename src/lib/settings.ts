@@ -39,6 +39,11 @@ export type AppSettings = {
   upiEnabled: boolean;
   onlineEnabled: boolean;
   upiId: string;
+  // Split payment — prepay part of the order (default: the delivery fee)
+  // via UPI at checkout and pay the remaining balance cash on delivery.
+  splitEnabled: boolean;
+  splitAdvanceType: "delivery" | "percent" | "fixed";
+  splitAdvanceValue: number;
   // Notifications
   notifyEmail: boolean;
   notifyWhatsapp: boolean;
@@ -80,6 +85,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   upiEnabled: true,
   onlineEnabled: false,
   upiId: "nightcorner@upi",
+  splitEnabled: true,
+  splitAdvanceType: "delivery",
+  splitAdvanceValue: 0,
   notifyEmail: false,
   notifyWhatsapp: true,
   notifySms: false,

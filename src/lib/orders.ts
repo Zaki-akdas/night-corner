@@ -29,8 +29,20 @@ export function statusLabel(s: string): string {
     CANCELLED: "Cancelled",
     REFUNDED: "Refunded",
     PENDING: "Pending",
+    PARTIAL: "Advance Paid (balance due)",
     PAID: "Paid",
     FAILED: "Failed",
   };
   return map[s] ?? s;
+}
+
+/** Human label for a payment method. */
+export function paymentMethodLabel(m: string): string {
+  const map: Record<string, string> = {
+    COD: "Cash on Delivery",
+    UPI: "UPI",
+    SPLIT: "Split (UPI + Cash)",
+    ONLINE: "Online",
+  };
+  return map[m] ?? m;
 }

@@ -87,6 +87,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       status: newStatus,
       ...(newStatus === "OUT_FOR_DELIVERY" && !order.outForDeliveryAt ? { outForDeliveryAt: new Date() } : {}),
       ...(newStatus === "DELIVERED" ? { deliveredAt: new Date() } : {}),
+      // Balance collected at handover — COD and split orders become fully paid.
+      ...(newStatus === "DELIVERED" && (order.paymentMethod === "COD" || order.paymentMethod === "SPLIT") ? { paymentStatus: "PAID" } : {}),
     },
   });
 

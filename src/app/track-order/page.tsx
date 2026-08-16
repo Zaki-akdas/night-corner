@@ -7,7 +7,7 @@ import { RefreshButton } from "@/components/ui/refresh-button";
 import { useOrderUpdates } from "@/lib/realtime-client";
 import { Loader2, MapPin, Navigation, Package, Search, Truck } from "lucide-react";
 import { STATUS_FLOW } from "@/lib/types";
-import { statusLabel } from "@/lib/orders";
+import { paymentMethodLabel, statusLabel } from "@/lib/orders";
 import { formatINR } from "@/lib/settings";
 
 type TrackData = {
@@ -16,6 +16,8 @@ type TrackData = {
   total: number;
   createdAt: string;
   paymentMethod: string;
+  advancePaid: number;
+  balanceDue: number;
   eta: string | null;
   distanceKm: number | null;
   address: { lat: number | null; lng: number | null; line: string | null } | null;
@@ -136,7 +138,13 @@ function TrackOrderInner() {
               <div className="text-sm text-slate-400">Order</div>
               <div className="text-lg font-bold text-white">{data.orderNumber}</div>
               <div className="mt-0.5 text-xs text-slate-500">
-                {new Date(data.createdAt).toLocaleString("en-IN")} · {data.paymentMethod}
+                {new Date(data.createdAt).toLocaleString("en-IN")} · {paymentMethodLabel(data.paymentMethod)}
+                {data.paymentMethod === "SPLIT" && data.balanceDue > 0 && (
+                  <div className="mt-1">
+                    <span className="text-emerald-300">💳 {formatINR(data.advancePaid)} paid via UPI</span> ·{" "}
+                    <span className="text-warm-yellow">collect {formatINR(data.balanceDue)} cash on delivery</span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="text-right">

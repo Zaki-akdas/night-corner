@@ -30,5 +30,5 @@ export const STATUS_FLOW: OrderStatus[] = [
   "DELIVERED",
 ];
 
-export type PaymentMethod = "COD" | "UPI" | "ONLINE";
-export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+export type PaymentMethod = "COD" | "UPI" | "SPLIT" | "ONLINE";
+export type PaymentStatus = "PENDING" | "PARTIAL" | "PAID" | "FAILED" | "REFUNDED";

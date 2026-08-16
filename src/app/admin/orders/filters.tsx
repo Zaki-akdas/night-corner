@@ -38,6 +38,7 @@ export function AdminOrderFilters() {
         <option value="">All payments</option>
         <option value="COD">COD</option>
         <option value="UPI">UPI</option>
+        <option value="SPLIT">Split (UPI + COD)</option>
         <option value="ONLINE">Online</option>
       </select>
     </div>
