@@ -91,8 +91,20 @@ async function main() {
     body: JSON.stringify({ name: NAME, email: EMAIL, mobile: MOBILE, password: PASSWORD }),
   });
   const suJson = await su.json().catch(() => ({}));
-  ok(`signup ${su.status}${suJson.id ? ` (userId ${suJson.id})` : ""}`);
+  ok(`signup ${su.status}${suJson.pending ? " (OTP sent)" : ""}${suJson.id ? ` (userId ${suJson.id})` : ""}`);
   if (su.status !== 200 && su.status !== 409) fail("signup should succeed (or report already-exists)");
+  if (su.status === 200 && suJson.pending) {
+    // Demo mode (no SMTP on the live deployment): the code is echoed back so
+    // the automated journey can complete. With real SMTP this comes by email.
+    if (!suJson.devOtp) fail("signup needs an OTP to proceed — no devOtp returned");
+    const vr = await req("/api/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email: EMAIL, otp: suJson.devOtp, name: NAME, mobile: MOBILE, password: PASSWORD }),
+    });
+    const vj = await vr.json().catch(() => ({}));
+    if (vr.status !== 200 || !vj.id) fail("OTP verification failed");
+    else ok(`email verified (userId ${vj.id})`);
+  }
 
   // 2. Login
   const jar = new Jar();

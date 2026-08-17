@@ -117,8 +117,19 @@ async function main() {
     body: JSON.stringify({ name: "Bhopal Pin Test", email, mobile: ADDR.mobile, password }),
   });
   const signupJson = await signupRes.json();
-  assert(signupRes.status === 200 && signupJson.id, "signup on live site");
-  userId = signupJson.id;
+  assert(signupRes.status === 200 && signupJson.pending === true, "signup requests OTP on live site");
+  if (signupJson.pending) {
+    assert(!!signupJson.devOtp, "demo mode echoes the OTP for automated flows");
+    const verifyRes = await request("/api/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp: signupJson.devOtp, name: "Bhopal Pin Test", mobile: ADDR.mobile, password }),
+    });
+    const verifyJson = await verifyRes.json();
+    assert(verifyRes.status === 200 && verifyJson.id, "OTP verification on live site");
+    userId = verifyJson.id;
+  } else {
+    userId = signupJson.id;
+  }
 
   const jar = new CookieJar();
   const { csrfToken } = await (await request("/api/auth/csrf", { jar })).json();

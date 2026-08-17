@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { issueEmailOtp } from "@/lib/email-otp";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -12,6 +12,9 @@ const schema = z.object({
   password: z.string().min(6),
 });
 
+/** Step 1 of signup: validate + check duplicates, then email a 6-digit OTP.
+ * The account is NOT created yet — it's created by /api/auth/verify-otp
+ * once the customer proves they own the email address. */
 export async function POST(req: Request) {
   const json = await req.json();
   const parsed = schema.safeParse(json);
@@ -21,9 +24,9 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  const { name, email, mobile, password } = parsed.data;
+  const { email } = parsed.data;
   const exists = await prisma.user.findFirst({
-    where: { OR: [{ email: email.toLowerCase() }, { mobile }] },
+    where: { OR: [{ email: email.toLowerCase() }, { mobile: parsed.data.mobile }] },
   });
   if (exists) {
     return NextResponse.json(
@@ -31,16 +34,22 @@ export async function POST(req: Request) {
       { status: 409 }
     );
   }
-  const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email: email.toLowerCase(),
-      mobile,
-      passwordHash,
-      role: "CUSTOMER",
-      status: "ACTIVE",
-    },
-  });
-  return NextResponse.json({ id: user.id });
+
+  const sent = await issueEmailOtp(email.toLowerCase());
+  if (sent.cooldown) {
+    return NextResponse.json(
+      { error: "A verification code was just sent — wait a minute and try again." },
+      { status: 429 }
+    );
+  }
+  if (!sent.ok) {
+    return NextResponse.json(
+      { error: "Could not send the verification email — try again in a moment." },
+      { status: 502 }
+    );
+  }
+
+  // devOtp is present only in demo mode (no SMTP configured) so local/e2e
+  // flows can complete without a real mailbox. Never returned when SMTP is on.
+  return NextResponse.json({ pending: true, devOtp: sent.devOtp });
 }

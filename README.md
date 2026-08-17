@@ -42,7 +42,12 @@ NextAuth. Open **10 PM – 6 AM**, delivery **within 10 KM**.
   WhatsApp order notification to the business.
 
 ### Customer Account
-- Sign up (name, email, mobile, password) / login (email **or** mobile).
+- Sign up (name, email, mobile, password) / login (email **or** mobile). New
+  accounts must verify their email with a **6-digit OTP** sent to their inbox
+  (`/api/auth/signup` issues the code, `/api/auth/verify-otp` creates the
+  account, `/api/auth/resend-otp` re-sends with a 1-minute cooldown). Without
+  `SMTP_HOST` the code is echoed back as `devOtp` in demo mode so local flows
+  still work; with SMTP configured it goes out by email only.
 - Dashboard: total/active/completed/cancelled orders, total spending.
 - Orders list + live tracking timeline:
   **Placed → Confirmed → Preparing → Packed → Out for Delivery → Delivered**.

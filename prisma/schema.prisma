@@ -68,6 +68,18 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+// Email OTP for signup email verification. One row per pending email; the
+// OTP expires after a few minutes and is invalidated after a few attempts.
+model EmailOtp {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  otp       String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ───────────────────────── Catalog ─────────────────────────
 model Category {
   id          String    @id @default(cuid())

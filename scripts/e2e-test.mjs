@@ -256,6 +256,9 @@ async function cleanupRemoteData(prisma, userId, orderId, originalSettings) {
     await prisma.user.delete({ where: { id: userId } }).catch(() => {});
     ok("removed test user");
   }
+  // Email OTP rows for the test signup (the verify path deletes its own row,
+  // but failed runs can leave one behind).
+  await prisma.emailOtp.deleteMany({ where: { email: { startsWith: "e2e-" } } }).catch(() => {});
   // Messenger identities captured by the webhook tests + activity rows left
   // behind for the test order/user (no FK, so the cascade above misses them).
   await prisma.messengerIdentity.deleteMany({ where: { psid: { in: ["PSID_E2E_001", "PSID_DEGRADED"] } } }).catch(() => {});
@@ -426,6 +429,8 @@ async function sweepDynamicRoutes(ctx) {
     { pattern: "/api/orders/[id]/resend-pin", method: "POST", label: "order PIN resend POST (customer, bogus → 404)", run: () => P("POST", "/api/orders/not-a-real-id/resend-pin", { jar: customer }), allowed: [404] },
     // ── NextAuth catch-all (framework-handled; exercised by every login) ──
     { pattern: "/api/auth/[...nextauth]", method: "GET", label: "nextauth catch-all (providers)", run: () => P("GET", "/api/auth/providers"), allowed: [200] },
+    { pattern: "/api/auth/resend-otp", method: "POST", label: "auth OTP resend POST (unknown email → 200 demo echo)", run: () => P("POST", "/api/auth/resend-otp", { body: { email: "nobody@example.com" } }), allowed: [200, 429] },
+    { pattern: "/api/auth/verify-otp", method: "POST", label: "auth OTP verify POST (no code → 400)", run: () => P("POST", "/api/auth/verify-otp", { body: { email: "nobody@example.com", otp: "123456", name: "X Y", mobile: "9876500000", password: "secret1" } }), allowed: [400] },
   ];
 
   try {
@@ -1072,8 +1077,32 @@ async function main() {
       body: JSON.stringify({ name: "E2E Tester", email, mobile: "9876500001", password }),
     });
     const signupJson = await signupRes.json();
-    assert(signupRes.status === 200 && signupJson.id, "signup creates a user");
-    userId = signupJson.id;
+    assert(signupRes.status === 200 && signupJson.pending === true, "signup requests email OTP verification");
+    assert(!signupJson.id, "no account is created before the email is verified");
+    // The OTP is stored server-side; demo mode (no SMTP) echoes it back too.
+    const otpRow = await prisma.emailOtp.findUnique({ where: { email } });
+    assert(!!otpRow && otpRow.otp.length === 6, "OTP row stored for the pending signup");
+    assert(signupJson.devOtp === otpRow.otp, "demo mode echoes the same OTP for local flows");
+    // Wrong OTP is rejected and does not create an account.
+    const badVerify = await request("/api/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp: "000000", name: "E2E Tester", mobile: "9876500001", password }),
+    });
+    assert(badVerify.status === 400, "wrong OTP rejected");
+    const noUserYet = await prisma.user.findUnique({ where: { email } });
+    assert(!noUserYet, "no account exists after a wrong OTP");
+    // Correct OTP creates the account with emailVerified set.
+    const verifyRes = await request("/api/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp: otpRow.otp, name: "E2E Tester", mobile: "9876500001", password }),
+    });
+    const verifyJson = await verifyRes.json();
+    assert(verifyRes.status === 200 && verifyJson.id, "correct OTP creates the user");
+    userId = verifyJson.id;
+    const verifiedUser = await prisma.user.findUnique({ where: { id: userId } });
+    assert(!!verifiedUser && verifiedUser.emailVerified instanceof Date, "created user has emailVerified set");
+    const otpGone = await prisma.emailOtp.findUnique({ where: { email } });
+    assert(!otpGone, "OTP is single-use and deleted after verification");
 
     const jar = new CookieJar();
     const csrfRes = await request("/api/auth/csrf", { jar });
