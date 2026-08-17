@@ -28,6 +28,15 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
   ]);
   if (!order) notFound();
 
+  // Latest receipt-email send result (recorded in the activity log when the
+  // UPI advance / full payment was confirmed), so the store can see whether
+  // the receipt reached the customer.
+  const receiptLog = await prisma.activityLog.findFirst({
+    where: { entityId: order.id, action: { in: ["ADVANCE_RECEIVED", "PAYMENT_VERIFIED"] } },
+    orderBy: { createdAt: "desc" },
+  });
+  const receiptEmail = receiptLog?.meta ? (JSON.parse(receiptLog.meta) as { receiptEmail?: { attempted: boolean; ok?: boolean; error?: string; configured?: boolean; reason?: string } }).receiptEmail : null;
+
   const addr = order.addressSnapshot ? JSON.parse(order.addressSnapshot) : order.address;
   const addressText = addr
     ? [
@@ -118,6 +127,23 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
           <div className="card p-5">
             <h2 className="mb-3 font-bold text-white">Payment</h2>
             <p className="text-sm text-slate-300">{paymentMethodLabel(order.paymentMethod)} · {statusLabel(order.paymentStatus)}</p>
+            {receiptEmail && (
+              <div className="mt-3 rounded-xl bg-white/5 p-3 text-sm">
+                {receiptEmail.attempted ? (
+                  receiptEmail.ok ? (
+                    <p className="text-emerald-300">
+                      📧 Receipt email {receiptEmail.configured ? "sent ✓" : "demo (SMTP not configured)"}
+                    </p>
+                  ) : (
+                    <p className="text-red-300">📧 Receipt email failed: {receiptEmail.error ?? "unknown error"}</p>
+                  )
+                ) : (
+                  <p className="text-slate-400">
+                    📧 Receipt email {receiptEmail.reason === "disabled" ? "notifications off" : "skipped (no customer email)"}
+                  </p>
+                )}
+              </div>
+            )}
             {order.paymentMethod === "SPLIT" && order.advancePaid > 0 && (
               <>
               <div className="mt-3 space-y-1 rounded-xl bg-white/5 p-3 text-sm">

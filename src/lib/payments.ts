@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "./prisma";
 import { logActivity } from "./admin";
-import { notifyCustomerAdvanceReceived, notifyCustomerPaymentReceived } from "./customer-alerts";
+import { notifyCustomerAdvanceReceived, notifyCustomerPaymentReceived, type EmailSendOutcome } from "./customer-alerts";
 
 /**
  * Razorpay-compatible payment gateway helpers. The gateway is OPTIONAL: when
@@ -106,6 +106,7 @@ export async function markPaymentVerified(
       : { paymentStatus: "PAID", paymentVerifiedAt: new Date() },
   });
 
+  let receiptEmail: EmailSendOutcome | null = null;
   if (opts.origin) {
     // Confirm the capture to the customer on their phone + email (receipt):
     // split orders confirm the advance, fully-paid UPI orders confirm the
@@ -114,11 +115,9 @@ export async function markPaymentVerified(
       .findUnique({ where: { id: order.userId }, select: { mobile: true, email: true } })
       .catch(() => null);
     if (customer?.mobile || customer?.email) {
-      if (isSplit) {
-        notifyCustomerAdvanceReceived(customer.mobile ?? "", customer.email ?? "", order, opts.origin).catch(() => {});
-      } else {
-        notifyCustomerPaymentReceived(customer.mobile ?? "", customer.email ?? "", order, opts.origin).catch(() => {});
-      }
+      receiptEmail = isSplit
+        ? await notifyCustomerAdvanceReceived(customer.mobile ?? "", customer.email ?? "", order, opts.origin).catch(() => null)
+        : await notifyCustomerPaymentReceived(customer.mobile ?? "", customer.email ?? "", order, opts.origin).catch(() => null);
     }
   }
 
@@ -148,6 +147,7 @@ export async function markPaymentVerified(
       amount: isSplit ? order.advancePaid : order.total,
       paymentRef: opts.paymentRef,
       via: opts.via,
+      receiptEmail: receiptEmail ?? undefined,
     },
   }).catch(() => {});
 

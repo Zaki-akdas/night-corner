@@ -13,6 +13,12 @@ import nodemailer from "nodemailer";
  *   SMTP_PASS     — auth password / app password
  *   EMAIL_FROM    — "Name <address>" shown as the sender (defaults to SMTP_USER)
  */
+/** True when an SMTP host is configured, so callers can tell a real send
+ * from the demo-mode no-op. */
+export function emailConfigured(): boolean {
+  return !!process.env.SMTP_HOST;
+}
+
 export async function sendEmailMessage(
   to: string,
   subject: string,

@@ -1,6 +1,6 @@
 import { sendWhatsappMessage, type WhatsAppTemplateParams } from "./whatsapp";
 import { sendSmsMessage } from "./sms";
-import { sendEmailMessage } from "./email";
+import { sendEmailMessage, emailConfigured } from "./email";
 import { sendMessengerMessage, getMessengerPsid } from "./messenger";
 import { getSettings, formatINR, type AppSettings } from "./settings";
 import { paymentMethodLabel } from "./orders";
@@ -159,31 +159,39 @@ export function buildAdvanceReceivedEmailHtml(order: OrderLike, origin: string):
   ].join("\n");
 }
 
+/** Outcome of the receipt-email send, returned to callers so the store can
+ * surface it (admin order page) instead of the send being invisible. */
+export type EmailSendOutcome =
+  | { attempted: false; reason: "no-email" | "disabled" }
+  | { attempted: true; ok: boolean; error?: string; configured: boolean };
+
 /** Fires the advance-received confirmation to the customer via the store's
  * enabled channels (WhatsApp, SMS, Messenger) plus a receipt email when the
- * customer has an email address and email notifications are on. Never throws:
- * external I/O failures are swallowed. */
+ * customer has an email address and email notifications are on. Returns the
+ * email outcome so callers can record it. Never throws: external I/O
+ * failures are swallowed. */
 export async function notifyCustomerAdvanceReceived(
   mobile: string,
   email: string,
   order: OrderLike,
   origin: string
-): Promise<void> {
-  if (!mobile && !email) return;
+): Promise<EmailSendOutcome | null> {
+  if (!mobile && !email) return null;
   const settings = await getSettings().catch(() => null);
-  if (!settings) return;
+  if (!settings) return null;
   if (mobile) {
     await sendToCustomerPhone(mobile, buildAdvanceReceivedMessage(order, origin), settings, {
       userId: order.userId,
     });
   }
-  if (email && settings.notifyEmail) {
-    await sendEmailMessage(
-      email,
-      `UPI advance received — order ${order.orderNumber}`,
-      buildAdvanceReceivedEmailHtml(order, origin)
-    );
-  }
+  if (!email) return { attempted: false, reason: "no-email" };
+  if (!settings.notifyEmail) return { attempted: false, reason: "disabled" };
+  const res = await sendEmailMessage(
+    email,
+    `UPI advance received — order ${order.orderNumber}`,
+    buildAdvanceReceivedEmailHtml(order, origin)
+  );
+  return { attempted: true, ok: res.ok, error: res.error, configured: emailConfigured() };
 }
 
 /** Confirmation message for a fully-paid (UPI) order. */
@@ -233,28 +241,30 @@ export function buildPaymentReceivedEmailHtml(order: OrderLike, origin: string):
 /** Fires the payment-received confirmation for a fully-paid (UPI) order via
  * the store's enabled channels (WhatsApp, SMS, Messenger) plus a receipt
  * email when the customer has an email address and email notifications are
- * on. Never throws: external I/O failures are swallowed. */
+ * on. Returns the email outcome so callers can record it. Never throws:
+ * external I/O failures are swallowed. */
 export async function notifyCustomerPaymentReceived(
   mobile: string,
   email: string,
   order: OrderLike,
   origin: string
-): Promise<void> {
-  if (!mobile && !email) return;
+): Promise<EmailSendOutcome | null> {
+  if (!mobile && !email) return null;
   const settings = await getSettings().catch(() => null);
-  if (!settings) return;
+  if (!settings) return null;
   if (mobile) {
     await sendToCustomerPhone(mobile, buildPaymentReceivedMessage(order, origin), settings, {
       userId: order.userId,
     });
   }
-  if (email && settings.notifyEmail) {
-    await sendEmailMessage(
-      email,
-      `Payment received — order ${order.orderNumber}`,
-      buildPaymentReceivedEmailHtml(order, origin)
-    );
-  }
+  if (!email) return { attempted: false, reason: "no-email" };
+  if (!settings.notifyEmail) return { attempted: false, reason: "disabled" };
+  const res = await sendEmailMessage(
+    email,
+    `Payment received — order ${order.orderNumber}`,
+    buildPaymentReceivedEmailHtml(order, origin)
+  );
+  return { attempted: true, ok: res.ok, error: res.error, configured: emailConfigured() };
 }
 
 /** Shared sender: fans the message out to whichever channels the store has

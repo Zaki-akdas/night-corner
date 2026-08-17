@@ -1379,6 +1379,20 @@ async function main() {
       select: { email: true },
     });
     assert(!!advCust && !!advCust.email, "customer has an email for the advance-received receipt");
+    const advLog = await prisma.activityLog.findFirst({
+      where: { entityId: splitJson.orderId, action: "ADVANCE_RECEIVED" },
+      orderBy: { createdAt: "desc" },
+    });
+    const advLogMeta = advLog?.meta ? JSON.parse(advLog.meta) : null;
+    assert(
+      !!advLogMeta && advLogMeta.receiptEmail && advLogMeta.receiptEmail.attempted === true,
+      "activity log records the receipt-email send outcome"
+    );
+    const advDetailPage = await (await request(`/admin/orders/${splitJson.orderId}`, { jar: adminJar })).text();
+    assert(
+      advDetailPage.includes("Receipt email"),
+      "admin order page surfaces the receipt-email status"
+    );
     const advInvRes = await request(`/api/orders/${splitJson.orderId}/invoice`, { jar });
     const advInvHtml = await advInvRes.text();
     assert(

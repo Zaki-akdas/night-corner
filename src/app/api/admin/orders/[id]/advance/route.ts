@@ -42,16 +42,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data: { advanceReceivedAt },
   });
 
+  let receiptEmail = null;
   if (parsed.data.received && !wasReceived) {
     // First-time confirmation — tell the customer on their phone (SMS /
     // WhatsApp / Messenger per store settings) and in-app, mirroring the
     // gateway-confirmed path in markPaymentVerified.
-    notifyCustomerAdvanceReceived(
+    receiptEmail = await notifyCustomerAdvanceReceived(
       order.user?.mobile ?? "",
       order.user?.email ?? "",
       order,
       new URL(req.url).origin
-    ).catch(() => {});
+    ).catch(() => null);
     await prisma.notification
       .create({
         data: {
@@ -74,6 +75,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       orderNumber: order.orderNumber,
       advance: order.advancePaid,
       received: parsed.data.received,
+      receiptEmail: parsed.data.received ? receiptEmail ?? null : undefined,
     },
   }).catch(() => {});
 
