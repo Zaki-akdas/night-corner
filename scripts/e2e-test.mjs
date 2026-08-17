@@ -1371,6 +1371,12 @@ async function main() {
       !!advNotif && advNotif.body.includes(splitJson.orderNumber),
       "customer notified when the UPI advance is confirmed"
     );
+    const advInvRes = await request(`/api/orders/${splitJson.orderId}/invoice`, { jar });
+    const advInvHtml = await advInvRes.text();
+    assert(
+      advInvHtml.includes("Advance confirmed") && advInvHtml.includes(splitJson.orderNumber),
+      "invoice shows the advance-received confirmation timestamp"
+    );
     const advNonSplit = await request(`/api/admin/orders/${orderId}/advance`, {
       method: "PATCH",
       jar: adminJar,
@@ -1766,6 +1772,54 @@ async function main() {
       "rider detail page shows awaiting confirmation before the advance is confirmed"
     );
 
+    // 5e4. Rider stats breakdown surfaces confirmed advances: a delivered
+    // split order with a confirmed advance shows in the summary card and the
+    // recent-deliveries table with its confirmation timestamp.
+    await prisma.order.create({
+      data: {
+        orderNumber: "NC-TEST-STATS-SPLIT-1",
+        status: "DELIVERED",
+        paymentMethod: "SPLIT",
+        paymentStatus: "PARTIAL",
+        advancePaid: 20,
+        balanceDue: 105,
+        advanceReceivedAt: new Date(),
+        subtotal: 100,
+        deliveryCharge: 20,
+        tax: 5,
+        total: 125,
+        distanceKm: 1,
+        eta: "35 mins",
+        deliveryPin: "1234",
+        assignedTo: staffUser.id,
+        assignedToName: "Delivery Staff",
+        deliveredAt: new Date(),
+        addressSnapshot: JSON.stringify({ fullName: "Test User", mobile: "+919999999999", city: "Indore", pincode: "452010" }),
+        items: {
+          create: {
+            productId: seedProduct.id,
+            name: seedProduct.name,
+            sku: seedProduct.sku,
+            image: seedProduct.image,
+            unitPrice: 100,
+            quantity: 1,
+            lineTotal: 100,
+          },
+        },
+        userId,
+        createdAt: new Date(),
+      },
+    });
+    const statsHtml = await (await request("/delivery/stats", { jar: staffJar })).text();
+    assert(
+      statsHtml.includes("Advance confirmed") && statsHtml.includes("₹20"),
+      "rider stats breakdown shows the confirmed advance amount"
+    );
+    assert(
+      statsHtml.includes("NC-TEST-STATS-SPLIT-1") && statsHtml.includes("SPLIT · advance ✓"),
+      "rider stats table marks the confirmed advance on the split order row"
+    );
+
     const dash1h = await (await request("/delivery?time=1h", { jar: staffJar })).text();
     assert(dash1h.includes("NC-TEST-COD-1") && !dash1h.includes("NC-TEST-UPI-1"), "time filter hides orders older than the window");
 
@@ -1781,7 +1835,7 @@ async function main() {
       "newest-first sort lists the fresh order before the older one"
     );
 
-    await prisma.order.deleteMany({ where: { orderNumber: { in: ["NC-TEST-COD-1", "NC-TEST-UPI-1", "NC-TEST-SPLIT-1"] } } });
+    await prisma.order.deleteMany({ where: { orderNumber: { in: ["NC-TEST-COD-1", "NC-TEST-UPI-1", "NC-TEST-SPLIT-1", "NC-TEST-STATS-SPLIT-1"] } } });
     ok("removed filter-test orders");
 
     // 5f. Customer live tracking: public track API returns status + map data.

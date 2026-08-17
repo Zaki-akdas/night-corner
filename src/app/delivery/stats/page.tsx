@@ -6,6 +6,7 @@ import { formatINR } from "@/lib/settings";
 import { statusLabel } from "@/lib/orders";
 import {
   ArrowLeft,
+  BadgeCheck,
   Bike,
   Clock,
   IndianRupee,
@@ -46,6 +47,7 @@ export default async function RiderStatsPage() {
         paymentMethod: true,
         advancePaid: true,
         balanceDue: true,
+        advanceReceivedAt: true,
         total: true,
         createdAt: true,
         updatedAt: true,
@@ -66,6 +68,17 @@ export default async function RiderStatsPage() {
   const upiCollected = delivered
     .filter((o) => o.paymentMethod === "UPI" || o.paymentMethod === "SPLIT")
     .reduce((a, o) => a + (o.paymentMethod === "SPLIT" ? o.advancePaid : o.total), 0);
+  const advanceConfirmed = delivered
+    .filter((o) => o.paymentMethod === "SPLIT" && o.advanceReceivedAt)
+    .reduce((a, o) => a + o.advancePaid, 0);
+  const advancePending = delivered
+    .filter((o) => o.paymentMethod === "SPLIT" && !o.advanceReceivedAt)
+    .reduce((a, o) => a + o.advancePaid, 0);
+  const latestAdvanceConfirm =
+    delivered
+      .filter((o) => o.paymentMethod === "SPLIT" && o.advanceReceivedAt)
+      .map((o) => o.advanceReceivedAt as Date)
+      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
   const activeCount = orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).length;
 
   const times = delivered
@@ -140,6 +153,19 @@ export default async function RiderStatsPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Stat icon={<Timer className="h-5 w-5" />} label="Avg delivery time" value={fmtMin(avgMin)} sub="out-for-delivery → delivered" tone="text-neon-purple" />
         <Stat icon={<Smartphone className="h-5 w-5" />} label="Collected via UPI" value={formatINR(upiCollected)} sub="UPI + split advances on delivered orders" tone="text-neon-blue" />
+        <Stat
+          icon={<BadgeCheck className="h-5 w-5" />}
+          label="Advance confirmed"
+          value={formatINR(advanceConfirmed)}
+          sub={
+            latestAdvanceConfirm
+              ? `latest ${latestAdvanceConfirm.toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}${advancePending > 0 ? ` · ${formatINR(advancePending)} unconfirmed` : ""}`
+              : advancePending > 0
+                ? `${formatINR(advancePending)} advance unconfirmed`
+                : "no split advances on delivered orders"
+          }
+          tone="text-emerald-400"
+        />
         <Stat icon={<TrendingUp className="h-5 w-5" />} label="This month" value={`${month.count} orders · ${formatINR(month.sales)}`} sub={`This week: ${week.count} orders · ${formatINR(week.sales)} · Today: ${today.count} orders · ${formatINR(today.sales)}`} tone="text-neon-blue" />
       </div>
 
@@ -167,7 +193,11 @@ export default async function RiderStatsPage() {
                     <td className="py-2 pr-3 font-semibold text-white">{o.orderNumber}</td>
                     <td className="py-2 pr-3 text-slate-400">{o.deliveredAt ? new Date(o.deliveredAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—"}</td>
                     <td className="py-2 pr-3">{formatINR(o.total)}</td>
-                    <td className="py-2 pr-3">{o.paymentMethod}</td>
+                    <td className="py-2 pr-3">
+                      {o.paymentMethod === "SPLIT"
+                        ? `SPLIT · advance ${o.advanceReceivedAt ? `✓ ${new Date(o.advanceReceivedAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}` : "unconfirmed"}`
+                        : o.paymentMethod}
+                    </td>
                     <td className="py-2">{o.deliveryRating != null ? `${o.deliveryRating} ★` : "—"}</td>
                   </tr>
                 ))}
