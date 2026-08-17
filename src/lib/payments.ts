@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "./prisma";
 import { logActivity } from "./admin";
-import { notifyCustomerAdvanceReceived } from "./customer-alerts";
+import { notifyCustomerAdvanceReceived, notifyCustomerPaymentReceived } from "./customer-alerts";
 
 /**
  * Razorpay-compatible payment gateway helpers. The gateway is OPTIONAL: when
@@ -106,14 +106,19 @@ export async function markPaymentVerified(
       : { paymentStatus: "PAID", paymentVerifiedAt: new Date() },
   });
 
-  if (isSplit && opts.origin) {
-    // Same SMS/WhatsApp confirmation the manual admin path sends — keep both
-    // confirmation routes consistent for the customer.
+  if (opts.origin) {
+    // Confirm the capture to the customer on their phone + email (receipt):
+    // split orders confirm the advance, fully-paid UPI orders confirm the
+    // whole payment — mirroring the manual admin paths.
     const customer = await prisma.user
       .findUnique({ where: { id: order.userId }, select: { mobile: true, email: true } })
       .catch(() => null);
     if (customer?.mobile || customer?.email) {
-      notifyCustomerAdvanceReceived(customer.mobile ?? "", customer.email ?? "", order, opts.origin).catch(() => {});
+      if (isSplit) {
+        notifyCustomerAdvanceReceived(customer.mobile ?? "", customer.email ?? "", order, opts.origin).catch(() => {});
+      } else {
+        notifyCustomerPaymentReceived(customer.mobile ?? "", customer.email ?? "", order, opts.origin).catch(() => {});
+      }
     }
   }
 
