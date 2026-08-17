@@ -1,5 +1,6 @@
 import { sendWhatsappMessage, type WhatsAppTemplateParams } from "./whatsapp";
 import { sendSmsMessage } from "./sms";
+import { sendEmailMessage } from "./email";
 import { sendMessengerMessage, getMessengerPsid } from "./messenger";
 import { getSettings, formatINR, type AppSettings } from "./settings";
 import { paymentMethodLabel } from "./orders";
@@ -123,20 +124,66 @@ export function buildAdvanceReceivedMessage(order: OrderLike, origin: string): s
   ].join("\n");
 }
 
-/** Fires the advance-received confirmation to the customer's phone via the
- * store's enabled channels (WhatsApp, SMS, Messenger) — mirroring the other
- * order alerts. Never throws: external I/O failures are swallowed. */
+/** Receipt-style email the store can send when the UPI advance is confirmed.
+ * Plain inline-styled HTML that renders in every mail client. */
+export function buildAdvanceReceivedEmailHtml(order: OrderLike, origin: string): string {
+  const trackUrl = `${origin}/track-order?order=${order.orderNumber}`;
+  const balance = formatINR(order.balanceDue ?? 0);
+  return [
+    `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#0f172a">`,
+    `  <div style="background:#0f172a;color:#fff;padding:18px 22px;border-radius:10px 10px 0 0">`,
+    `    <h1 style="margin:0;font-size:20px">✅ UPI advance received — ${order.orderNumber}</h1>`,
+    `  </div>`,
+    `  <div style="border:1px solid #e2e8f0;border-top:0;padding:22px;border-radius:0 0 10px 10px">`,
+    `    <p style="margin:0 0 14px">Hi there,</p>`,
+    `    <p style="margin:0 0 14px">Great news — we've confirmed your UPI advance of <b>${formatINR(order.advancePaid ?? 0)}</b> for order <b>${order.orderNumber}</b>.</p>`,
+    `    <table style="width:100%;border-collapse:collapse;margin:0 0 14px;font-size:14px">`,
+    `      <tr>`,
+    `        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b">Order number</td>`,
+    `        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600">${order.orderNumber}</td>`,
+    `      </tr>`,
+    `      <tr>`,
+    `        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b">Advance paid (UPI)</td>`,
+    `        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600">${formatINR(order.advancePaid ?? 0)}</td>`,
+    `      </tr>`,
+    `      <tr>`,
+    `        <td style="padding:8px 0;color:#64748b">Balance on delivery</td>`,
+    `        <td style="padding:8px 0;text-align:right;font-weight:600">${balance}</td>`,
+    `      </tr>`,
+    `    </table>`,
+    `    <p style="margin:0 0 14px">Please keep <b>${balance}</b> ready as cash when your order arrives.</p>`,
+    `    <a href="${trackUrl}" style="display:inline-block;background:#22c55e;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600">Track your order live</a>`,
+    `    <p style="margin:18px 0 0;color:#94a3b8;font-size:12px">Thank you for ordering from Night Corner 🌙</p>`,
+    `  </div>`,
+    `</div>`,
+  ].join("\n");
+}
+
+/** Fires the advance-received confirmation to the customer via the store's
+ * enabled channels (WhatsApp, SMS, Messenger) plus a receipt email when the
+ * customer has an email address and email notifications are on. Never throws:
+ * external I/O failures are swallowed. */
 export async function notifyCustomerAdvanceReceived(
   mobile: string,
+  email: string,
   order: OrderLike,
   origin: string
 ): Promise<void> {
-  if (!mobile) return;
+  if (!mobile && !email) return;
   const settings = await getSettings().catch(() => null);
   if (!settings) return;
-  await sendToCustomerPhone(mobile, buildAdvanceReceivedMessage(order, origin), settings, {
-    userId: order.userId,
-  });
+  if (mobile) {
+    await sendToCustomerPhone(mobile, buildAdvanceReceivedMessage(order, origin), settings, {
+      userId: order.userId,
+    });
+  }
+  if (email && settings.notifyEmail) {
+    await sendEmailMessage(
+      email,
+      `UPI advance received — order ${order.orderNumber}`,
+      buildAdvanceReceivedEmailHtml(order, origin)
+    );
+  }
 }
 
 /** Shared sender: fans the message out to whichever channels the store has

@@ -159,6 +159,10 @@ FAST2SMS_API_KEY
 # MESSENGER_WEBHOOK_VERIFY_TOKEN (your chosen string; echoed on webhook verification)
 # MESSENGER_APP_SECRET (validates X-Hub-Signature-256 on webhook POSTs)
 
+# Email (receipt-style advance-received confirmation when notifyEmail is on).
+# SMTP_HOST is required to send; without it the sender is a demo no-op.
+SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, EMAIL_FROM
+
 ADMIN_EMAIL="admin@nightcorner.in"
 SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD / SEED_ADMIN_NAME
 ```
@@ -223,6 +227,10 @@ The customer is notified on the phone number saved with their delivery address:
   on Messenger** in Account Settings, which opens an `m.me` deep link whose `ref`
   carries their userId. Until a PSID is linked the channel is silently skipped;
   without a token it's a demo no-op.
+- **Email** (if `notifyEmail` is enabled) — a receipt-style confirmation with the
+  order number, advance paid, balance due and a live-tracking link is sent to the
+  customer's account email via SMTP (nodemailer) when `SMTP_HOST` is set; without
+  it the sender is a demo no-op, exactly like the phone channels.
 
 The **order-confirmation message** (sent the moment an order is placed) carries
 the order number, ETA, tracking link, and the **4-digit delivery PIN** the

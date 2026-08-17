@@ -182,9 +182,9 @@ const TEST_SETTINGS = {
   upiEnabled: true,
   onlineEnabled: false,
   upiId: "nightcorner@upi",
-  notifyEmail: false,
-  // Enabled so the OFD step exercises the external SMS/WhatsApp/Messenger code
-  // paths. Without provider credentials the senders run in demo mode (no-op ok).
+  notifyEmail: true,
+  // Enabled so the OFD step exercises the external SMS/WhatsApp/Messenger/email
+  // code paths. Without provider credentials the senders run in demo mode (no-op ok).
   notifyWhatsapp: true,
   notifySms: true,
   notifyMessenger: true,
@@ -1371,6 +1371,14 @@ async function main() {
       !!advNotif && advNotif.body.includes(splitJson.orderNumber),
       "customer notified when the UPI advance is confirmed"
     );
+    // notifyEmail is on in TEST_SETTINGS, so the confirm path also exercises
+    // the receipt-email branch (demo-mode SMTP no-op). The customer account
+    // must carry an email address for that branch to actually run.
+    const advCust = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    assert(!!advCust && !!advCust.email, "customer has an email for the advance-received receipt");
     const advInvRes = await request(`/api/orders/${splitJson.orderId}/invoice`, { jar });
     const advInvHtml = await advInvRes.text();
     assert(

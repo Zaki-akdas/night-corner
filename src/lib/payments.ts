@@ -110,10 +110,10 @@ export async function markPaymentVerified(
     // Same SMS/WhatsApp confirmation the manual admin path sends — keep both
     // confirmation routes consistent for the customer.
     const customer = await prisma.user
-      .findUnique({ where: { id: order.userId }, select: { mobile: true } })
+      .findUnique({ where: { id: order.userId }, select: { mobile: true, email: true } })
       .catch(() => null);
-    if (customer?.mobile) {
-      notifyCustomerAdvanceReceived(customer.mobile, order, opts.origin).catch(() => {});
+    if (customer?.mobile || customer?.email) {
+      notifyCustomerAdvanceReceived(customer.mobile ?? "", customer.email ?? "", order, opts.origin).catch(() => {});
     }
   }
 

@@ -25,7 +25,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { user: { select: { mobile: true } } },
+    include: { user: { select: { mobile: true, email: true } } },
   });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
   if (order.paymentMethod !== "SPLIT") {
@@ -48,6 +48,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // gateway-confirmed path in markPaymentVerified.
     notifyCustomerAdvanceReceived(
       order.user?.mobile ?? "",
+      order.user?.email ?? "",
       order,
       new URL(req.url).origin
     ).catch(() => {});
