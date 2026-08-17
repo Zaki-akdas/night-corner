@@ -64,7 +64,20 @@ export default async function AdminOrdersPage({
                 <td className="p-3 text-slate-200">{o.user.name}</td>
                 <td className="p-3 text-slate-400">{o.items.length}</td>
                 <td className="p-3 font-semibold text-warm-yellow">{formatINR(o.total)}</td>
-<td className="p-3 text-slate-300">{paymentMethodLabel(o.paymentMethod)}</td>
+<td className="p-3">
+                  {o.paymentMethod === "SPLIT" ? (
+                    <span
+                      className={
+                        o.advanceReceivedAt
+                          ? "chip bg-emerald-400/20 text-emerald-400"
+                          : "chip bg-amber-400/20 text-amber-300"
+                      }
+                    >
+                      {`Split · advance ${o.advanceReceivedAt ? "✓" : "unconfirmed"}`}
+                    </span>
+                  ) : (
+                    <span className="text-slate-300">{paymentMethodLabel(o.paymentMethod)}</span>
+                  )}</td>
                 <td className="p-3">
                   <span className="chip bg-neon-purple/20 text-neon-purple">{statusLabel(o.status)}</span>
                 </td>

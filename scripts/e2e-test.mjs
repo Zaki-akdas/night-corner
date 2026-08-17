@@ -1377,6 +1377,11 @@ async function main() {
       advInvHtml.includes("Advance confirmed") && advInvHtml.includes(splitJson.orderNumber),
       "invoice shows the advance-received confirmation timestamp"
     );
+    const advListConfirmed = await (await request("/admin/orders", { jar: adminJar })).text();
+    assert(
+      advListConfirmed.includes(splitJson.orderNumber) && advListConfirmed.includes("Split · advance ✓"),
+      "admin orders list shows the confirmed advance chip for the split order"
+    );
     const advNonSplit = await request(`/api/admin/orders/${orderId}/advance`, {
       method: "PATCH",
       jar: adminJar,
@@ -1394,6 +1399,11 @@ async function main() {
       select: { advanceReceivedAt: true },
     });
     assert(!!advOrder2 && advOrder2.advanceReceivedAt === null, "advanceReceivedAt cleared on revert");
+    const advListReverted = await (await request("/admin/orders", { jar: adminJar })).text();
+    assert(
+      advListReverted.includes(splitJson.orderNumber) && advListReverted.includes("Split · advance unconfirmed"),
+      "admin orders list shows the unconfirmed chip after the advance is reverted"
+    );
 
     // 5b2. Payment gateway runs safely in demo mode (no keys configured):
     // create/verify are disabled with a clear 400 and the webhook is
