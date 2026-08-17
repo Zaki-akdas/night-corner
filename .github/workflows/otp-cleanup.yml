@@ -2,8 +2,9 @@ name: OTP cleanup (scheduled)
 
 on:
   schedule:
-    # Hourly sweep — OTPs live 10 minutes, so stale rows are removed well
-    # before they could accumulate. Runs every hour at minute 17.
+    # Hourly sweep — OTPs live 10 minutes and die after 5 attempts, so stale
+    # rows are removed well before they could accumulate. Runs every hour at
+    # minute 17.
     - cron: "17 * * * *"
   workflow_dispatch:
 
@@ -22,11 +23,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Sweep expired OTP rows
+      - name: Sweep stale OTP rows
         env:
           # Direct Postgres connection to the production database. Only
-          # EmailOtp rows past expiresAt are touched.
+          # EmailOtp rows past expiresAt or past MAX_ATTEMPTS are touched.
           DB_URL: ${{ secrets.PROD_E2E_TEST_DB_URL }}
+          # Sentry-style owner alert on failure (both optional — without a
+          # key the alert is skipped and the job still fails loudly).
+          FAST2SMS_API_KEY: ${{ secrets.FAST2SMS_API_KEY }}
+          OWNER_ALERT_PHONE: ${{ secrets.OWNER_ALERT_PHONE }}
         run: node scripts/cleanup-expired-otp.mjs
 
       - name: Open an issue on failure
@@ -43,11 +48,11 @@ jobs:
             });
             const dup = existing.data.find((i) => i.title === title);
             const body = [
-              `The hourly expired-OTP sweep failed at ${new Date().toISOString()}.`,
+              `The hourly stale-OTP sweep failed at ${new Date().toISOString()}.`,
               "",
               "Run: " + context.serverUrl + "/" + context.repo.full_name + "/actions/runs/" + context.runId,
               "",
-              "The EmailOtp table may be accumulating stale codes. Check the run logs, fix the root cause, then close this issue.",
+              "The store owner was also SMS-alerted (if FAST2SMS_API_KEY is set). The EmailOtp table may be accumulating stale codes — expired or attempt-exhausted. Check the run logs, fix the root cause, then close this issue.",
             ].join("\n");
             if (dup) {
               await github.rest.issues.update({ ...context.repo, issue_number: dup.number, body });
