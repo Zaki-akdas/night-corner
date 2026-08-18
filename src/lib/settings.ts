@@ -53,9 +53,9 @@ export type AppSettings = {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   businessName: "NIGHT CORNER",
-  slogan: "Your Night. Your Essentials.",
-  openTime: "22:00",
-  closeTime: "06:00",
+  slogan: "Your Night. Your Essentials. — Open 24×7, delivered all night.",
+  openTime: "00:00",
+  closeTime: "23:59",
   openDays: [0, 1, 2, 3, 4, 5, 6],
   timezone: "Asia/Kolkata",
   forceOpen: false,
@@ -80,7 +80,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "918989418270",
   contactEmail: "nightcorner.shop@gmail.com",
   contactPhone: "+91 89894 18270",
-  socials: { instagram: "nightcorner", facebook: "nightcorner" },
+  socials: { instagram: "https://www.instagram.com/nightcorner.in?igsh=dTkyYmpxZ2xmMXhp&igsi=dTkyYmpxZ2xmMXhp", facebook: "https://www.facebook.com/share/14pbsPLNaQ3/" },
   codEnabled: true,
   upiEnabled: true,
   onlineEnabled: false,

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Instagram, Facebook, Twitter } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import type { AppSettings } from "@/lib/settings";
 
@@ -21,6 +21,7 @@ export function GeneralSettingsForm({ initial }: { initial: AppSettings }) {
       body: JSON.stringify({
         businessName: s.businessName,
         slogan: s.slogan,
+        socials: s.socials,
         notifyEmail: s.notifyEmail,
         notifyWhatsapp: s.notifyWhatsapp,
         notifySms: s.notifySms,
@@ -49,6 +50,38 @@ export function GeneralSettingsForm({ initial }: { initial: AppSettings }) {
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-slate-400">
           Logo & favicon are served from <code className="text-neon-blue">/logo.svg</code> and <code className="text-neon-blue">/favicon.svg</code>. Replace the files in <code>/public</code> to rebrand.
         </div>
+      </section>
+
+      <section className="card space-y-4 p-5">
+        <h2 className="font-bold text-white">Social Links</h2>
+        <p className="text-xs text-slate-400">Full URLs for the social icons shown in the footer. Leave blank to hide an icon.</p>
+        <label className="block">
+          <span className="label flex items-center gap-2"><Instagram className="h-4 w-4" /> Instagram URL</span>
+          <input
+            className="input"
+            value={s.socials.instagram ?? ""}
+            onChange={(e) => set("socials", { ...s.socials, instagram: e.target.value || undefined })}
+            placeholder="https://www.instagram.com/yourusername"
+          />
+        </label>
+        <label className="block">
+          <span className="label flex items-center gap-2"><Facebook className="h-4 w-4" /> Facebook URL</span>
+          <input
+            className="input"
+            value={s.socials.facebook ?? ""}
+            onChange={(e) => set("socials", { ...s.socials, facebook: e.target.value || undefined })}
+            placeholder="https://www.facebook.com/yourpage"
+          />
+        </label>
+        <label className="block">
+          <span className="label flex items-center gap-2"><Twitter className="h-4 w-4" /> Twitter / X URL</span>
+          <input
+            className="input"
+            value={s.socials.twitter ?? ""}
+            onChange={(e) => set("socials", { ...s.socials, twitter: e.target.value || undefined })}
+            placeholder="https://x.com/yourhandle"
+          />
+        </label>
       </section>
 
       <section className="card space-y-3 p-5">

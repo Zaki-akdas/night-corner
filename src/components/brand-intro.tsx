@@ -124,7 +124,7 @@ export function BrandIntro() {
           />
         </div>
         <div className="intro-tagline mt-5 text-center text-[11px] font-medium tracking-[0.2em] text-slate-400 opacity-0">
-          YOUR NIGHT · YOUR ESSENTIALS
+          YOUR NIGHT · YOUR ESSENTIALS · DELIVERED ALL NIGHT
         </div>
         <div className="mt-8 h-0.5 w-40 overflow-hidden rounded-full bg-white/10">
           <div className="h-full w-1/2 animate-gradient-x rounded-full bg-gradient-to-r from-neon-purple via-neon-blue to-warm-yellow" />

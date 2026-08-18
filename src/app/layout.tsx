@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     template: "%s · NIGHT CORNER",
   },
   description:
-    "Late-night snacks, bakery, chocolates, instant food and drinks delivered to your door. Open 10 PM – 6 AM, within 10 KM.",
+    "Late-night snacks, bakery, chocolates, instant food and drinks delivered to your door. Open 24×7, within 10 KM.",
   keywords: [
     "late night delivery",
     "midnight snacks",
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "NIGHT CORNER — Your Night. Your Essentials.",
     description:
-      "Late-night snacks, bakery, chocolates, instant food and drinks delivered to your door.",
+      "Late-night snacks, bakery, chocolates, instant food and drinks delivered to your door. Open 24×7 for night people.",
     type: "website",
     images: ["/logo.png"],
   },

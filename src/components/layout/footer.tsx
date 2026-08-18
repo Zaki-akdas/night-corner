@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Instagram, Facebook, Twitter, MapPin, Phone, Mail, Clock } from "lucide-react";
+import { Instagram, Facebook, Twitter, MessageCircle, MapPin, Phone, Mail, Clock } from "lucide-react";
 import type { AppSettings } from "@/lib/settings";
 import { waMeLink } from "@/lib/whatsapp";
 import { fmtTime } from "@/lib/hours";
@@ -27,14 +27,15 @@ export function Footer({ settings }: { settings: AppSettings }) {
           <p className="mt-4 text-sm text-slate-400">{settings.slogan}</p>
           <div className="mt-4 flex gap-2">
             {settings.socials.instagram && (
-              <Social href={`https://instagram.com/${settings.socials.instagram}`} icon={<Instagram className="h-4 w-4" />} />
+              <Social href={settings.socials.instagram} icon={<Instagram className="h-4 w-4" />} />
             )}
             {settings.socials.facebook && (
-              <Social href={`https://facebook.com/${settings.socials.facebook}`} icon={<Facebook className="h-4 w-4" />} />
+              <Social href={settings.socials.facebook} icon={<Facebook className="h-4 w-4" />} />
             )}
             {settings.socials.twitter && (
-              <Social href={`https://twitter.com/${settings.socials.twitter}`} icon={<Twitter className="h-4 w-4" />} />
+              <Social href={settings.socials.twitter} icon={<Twitter className="h-4 w-4" />} />
             )}
+            <Social href={wa} icon={<MessageCircle className="h-4 w-4" />} />
           </div>
         </div>
 
@@ -86,7 +87,7 @@ export function Footer({ settings }: { settings: AppSettings }) {
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-5 text-center text-xs text-slate-500">
-        © {new Date().getFullYear()} NIGHT CORNER · Your Night. Your Essentials. · All rights reserved.
+        © {new Date().getFullYear()} NIGHT CORNER · Your Night. Your Essentials. · Open 24×7 · All rights reserved.
         <span className="mt-1 block">Made by Zaki ✨</span>
       </div>
     </footer>

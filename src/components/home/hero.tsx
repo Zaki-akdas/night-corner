@@ -47,6 +47,15 @@ export function Hero() {
         </motion.p>
 
         <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.35 }}
+          className="mt-4 flex items-center gap-2 rounded-full border border-neon-purple/20 bg-neon-purple/5 px-5 py-2 text-sm font-medium text-neon-purple/90"
+        >
+          🌙 Open 24×7 · We deliver all night for night people
+        </motion.div>
+
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.4 }}

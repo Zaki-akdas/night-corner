@@ -14,7 +14,7 @@ export function CTA({ whatsappNumber }: { whatsappNumber: string }) {
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-slate-300">
             Browse 53+ midnight essentials and get them delivered within 10 KM.
-            Ordering opens at 10 PM — set your alarm, night owl.
+            We&apos;re open 24×7 — because night people don&apos;t stop.
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <Link href="/shop" className="btn-primary">
