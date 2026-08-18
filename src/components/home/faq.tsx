@@ -6,7 +6,7 @@ import { SectionHeading } from "./section-heading";
 const FAQS = [
   {
     q: "What are Night Corner's delivery hours?",
-    a: "We accept orders every night from 10:00 PM to 6:00 AM. Browsing is always available, but checkout opens exactly at 10 PM and closes at 6 AM.",
+    a: "We're open 24×7! Place orders anytime, day or night — we deliver all night for night people. Browsing and ordering are always available.",
   },
   {
     q: "Where do you deliver?",

@@ -21,7 +21,7 @@ export function Hero() {
           className="chip glass mb-6 text-slate-200"
         >
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-neon-blue" />
-          🌙 Open Tonight: {open ? fmtTime(open.openTime) : "10 PM"} – {open ? fmtTime(open.closeTime) : "6 AM"}
+          🌙 Open 24×7 — Delivering all night, every night
         </motion.div>
 
         <motion.h1
@@ -77,8 +77,8 @@ export function Hero() {
         >
           <InfoPill
             icon={<Clock className="h-4 w-4 text-neon-purple" />}
-            label={open?.isOpen ? "Open Now" : "Opens in " + fmtCountdown(open?.secondsUntilChange ?? 0)}
-            sub={open?.nextWindowLabel ?? "10 PM – 6 AM"}
+            label={open?.isOpen ? "Open 24×7" : "Opens in " + fmtCountdown(open?.secondsUntilChange ?? 0)}
+            sub={open?.nextWindowLabel ?? "Open 24×7 — all night delivery"}
             tone={open?.isOpen ? "ok" : "wait"}
           />
           <InfoPill

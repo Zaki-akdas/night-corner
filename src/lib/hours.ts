@@ -124,6 +124,18 @@ export function getOpenStatus(settings: AppSettings, now = new Date()): OpenStat
     };
   }
 
+  // 24×7 mode: always open unless emergency closed
+  if (is24x7(settings)) {
+    return {
+      isOpen: true,
+      opensAt: now,
+      closesAt: new Date(now.getTime() + 86400000),
+      label: "Open 24×7",
+      nextWindowLabel: "Open 24×7 — we deliver all night",
+      secondsUntilChange: 86400,
+    };
+  }
+
   if (forceOpen) {
     const close = parseHM(closeTime);
     const wc = wallClock(now, tz);
@@ -187,6 +199,7 @@ export function getOpenStatus(settings: AppSettings, now = new Date()): OpenStat
     closesAt: opensAt,
     label: "Closed",
     nextWindowLabel: `Ordering opens at ${fmtTime(openTime)}`,
+
     secondsUntilChange: Math.max(0, Math.floor((opensAt.getTime() - now.getTime()) / 1000)),
   };
 }
@@ -212,6 +225,15 @@ export function fmtTime(hm: string): string {
   const period = h >= 12 ? "PM" : "AM";
   const hr = h % 12 === 0 ? 12 : h % 12;
   return `${hr}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
+/** Returns true when the schedule is configured for around-the-clock ordering. */
+export function is24x7(settings: AppSettings): boolean {
+  return (
+    settings.openDays.length === 7 &&
+    !settings.holidays.length &&
+    settings.openTime === "00:00"
+  );
 }
 
 export function fmtCountdown(seconds: number): string {

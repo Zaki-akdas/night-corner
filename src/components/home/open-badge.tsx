@@ -54,7 +54,7 @@ export function OpenBadgeServer(props: {
           </div>
           <div className="mt-1 text-slate-300">{props.nextWindowLabel}</div>
           <div className="mt-1 text-xs uppercase tracking-widest text-slate-500">
-            Ordering opens at {fmtHM(props.openTime)} · next window closes {fmtHM(props.closeTime)}
+            Open 24×7 — we deliver all night for night people
           </div>
         </div>
         {!props.isOpen && (
