@@ -146,7 +146,7 @@ export function getOpenStatus(settings: AppSettings, now = new Date()): OpenStat
       opensAt: now,
       closesAt,
       label: "Open (Override)",
-      nextWindowLabel: `Open now · closes at ${fmtTime(closeTime)}`,
+      nextWindowLabel: "When the city sleeps, we deliver.",
       secondsUntilChange: Math.max(0, Math.floor((closesAt.getTime() - now.getTime()) / 1000)),
     };
   }
@@ -187,7 +187,7 @@ export function getOpenStatus(settings: AppSettings, now = new Date()): OpenStat
       opensAt: inMorningWindow ? lastNightOpen : tonightOpen,
       closesAt,
       label: "Open Now",
-      nextWindowLabel: `Open now · closes at ${fmtTime(closeTime)}`,
+      nextWindowLabel: "When the city sleeps, we deliver.",
       secondsUntilChange: Math.max(0, Math.floor((closesAt.getTime() - now.getTime()) / 1000)),
     };
   }

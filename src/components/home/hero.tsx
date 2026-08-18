@@ -21,7 +21,7 @@ export function Hero() {
           className="chip glass mb-6 text-slate-200"
         >
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-neon-blue" />
-          🌙 Open 24×7 — Delivering all night, every night
+          🌙 When the city sleeps, we deliver.
         </motion.div>
 
         <motion.h1
@@ -52,7 +52,7 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.35 }}
           className="mt-4 flex items-center gap-2 rounded-full border border-neon-purple/20 bg-neon-purple/5 px-5 py-2 text-sm font-medium text-neon-purple/90"
         >
-          🌙 Open 24×7 · We deliver all night for night people
+          🌙 When the city sleeps, we deliver. · Open 24×7
         </motion.div>
 
         <motion.div
@@ -78,7 +78,7 @@ export function Hero() {
           <InfoPill
             icon={<Clock className="h-4 w-4 text-neon-purple" />}
             label={open?.isOpen ? "Open 24×7" : "Opens in " + fmtCountdown(open?.secondsUntilChange ?? 0)}
-            sub={open?.nextWindowLabel ?? "Open 24×7 — all night delivery"}
+            sub="When the city sleeps, we deliver."
             tone={open?.isOpen ? "ok" : "wait"}
           />
           <InfoPill

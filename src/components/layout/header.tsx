@@ -82,7 +82,7 @@ export function Header({ settings }: { settings: AppSettings }) {
         <Moon className="hidden h-3.5 w-3.5 shrink-0 sm:block" />
         {open?.isOpen ? (
           <span className="min-w-0 truncate">
-            🌙 Open 24×7 — we deliver all night for night people
+            🌙 When the city sleeps, we deliver. · Open 24×7
             <span className="hidden sm:inline"> · within {settings.maxRadiusKm} KM</span>
           </span>
         ) : open ? (
@@ -91,7 +91,7 @@ export function Header({ settings }: { settings: AppSettings }) {
             <span className="hidden sm:inline"> · {open.nextWindowLabel}</span>
           </span>
         ) : (
-          <span className="min-w-0 truncate">🌙 Open 24×7 · within {settings.maxRadiusKm} KM</span>
+          <span className="min-w-0 truncate">🌙 When the city sleeps, we deliver. · Open 24×7</span>
         )}
       </div>
 

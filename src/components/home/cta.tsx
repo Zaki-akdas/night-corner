@@ -13,8 +13,8 @@ export function CTA({ whatsappNumber }: { whatsappNumber: string }) {
             Craving something tonight?
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-slate-300">
-            Browse 53+ midnight essentials and get them delivered within 10 KM.
-            We&apos;re open 24×7 — because night people don&apos;t stop.
+            When the city sleeps, we deliver. Browse 53+ midnight essentials
+            and get them delivered within 10 KM — open 24×7.
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <Link href="/shop" className="btn-primary">

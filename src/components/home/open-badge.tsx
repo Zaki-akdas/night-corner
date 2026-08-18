@@ -52,9 +52,9 @@ export function OpenBadgeServer(props: {
           >
             {props.isOpen ? "🌙 We're Open — Order Now!" : "🌙 Night Ordering is Closed"}
           </div>
-          <div className="mt-1 text-slate-300">{props.nextWindowLabel}</div>
+          <div className="mt-1 text-slate-300">When the city sleeps, we deliver.</div>
           <div className="mt-1 text-xs uppercase tracking-widest text-slate-500">
-            Open 24×7 — we deliver all night for night people
+            Open 24×7 · Fresh snacks, bakery & drinks · Delivered to your door
           </div>
         </div>
         {!props.isOpen && (
